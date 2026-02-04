@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { EventEmitter } from '../core/EventEmitter.js'
 import SpeciesLoader from '../data/SpeciesLoader.js'
 import { Isopod } from './Isopod.js'
+import { Springtail } from './Springtail.js'
+import { DartFrog } from './DartFrog.js'
 
 /**
  * Manages all creatures in the terrarium
@@ -33,8 +35,9 @@ export class CreatureManager extends EventEmitter {
 
     // Species class mapping
     this.speciesClasses = {
-      powder_blue_isopod: Isopod
-      // Add more species classes here as they're implemented
+      powder_blue_isopod: Isopod,
+      springtails: Springtail,
+      dendrobates_auratus: DartFrog
     }
   }
 
@@ -111,11 +114,17 @@ export class CreatureManager extends EventEmitter {
    */
   getDefaultClass(speciesData) {
     const subcategory = speciesData.identity.subcategory
-    if (subcategory === 'isopod') {
-      return Isopod
+
+    switch (subcategory) {
+      case 'isopod':
+        return Isopod
+      case 'springtail':
+        return Springtail
+      case 'dart_frog':
+        return DartFrog
+      default:
+        return null
     }
-    // Default to base Creature class
-    return null
   }
 
   /**
@@ -205,6 +214,73 @@ export class CreatureManager extends EventEmitter {
         creature.ageBy(gameDays)
       }
     }
+
+    // Process predator/prey interactions
+    this.updatePredation(deltaTime, environment)
+  }
+
+  /**
+   * Update predator/prey interactions
+   */
+  updatePredation(deltaTime, environment) {
+    // Get all predators and prey
+    const predators = this.creatures.filter(c =>
+      c.isAlive &&
+      c.speciesData.diet.feeding_method === 'hunter' &&
+      !c.isHunting
+    )
+
+    const prey = this.creatures.filter(c =>
+      c.isAlive &&
+      (c.speciesData.identity.subcategory === 'springtail')
+    )
+
+    // Have predators look for prey
+    for (const predator of predators) {
+      // Only hunt if hungry enough
+      if (predator.needs.hunger > 70) continue
+
+      // Find prey
+      const target = predator.findPrey(prey)
+      if (target) {
+        predator.startHunting(target)
+      }
+    }
+
+    // Have prey detect predators
+    const allPredators = this.creatures.filter(c =>
+      c.isAlive &&
+      c.speciesData.diet.feeding_method === 'hunter'
+    )
+
+    for (const preyCreature of prey) {
+      if (preyCreature.isFleeing) continue
+
+      const nearbyPredator = preyCreature.detectPredator(allPredators)
+      if (nearbyPredator && preyCreature.startFleeing) {
+        preyCreature.startFleeing(nearbyPredator)
+      }
+    }
+  }
+
+  /**
+   * Get prey creatures for a predator
+   */
+  getPreyFor(predator) {
+    const preyIds = []
+
+    // Check compatibility for prey relationships
+    if (predator.speciesData.compatibility) {
+      for (const compat of predator.speciesData.compatibility) {
+        if (compat.interaction_type === 'predator' && compat.is_predator) {
+          preyIds.push(compat.target_species_id)
+        }
+      }
+    }
+
+    return this.creatures.filter(c =>
+      c.isAlive && preyIds.includes(c.speciesId)
+    )
   }
 
   /**

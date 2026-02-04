@@ -98,6 +98,9 @@ export class GameHUD {
             <button class="action-btn mist-btn">💧 Mist</button>
             <button class="action-btn feed-btn">🍖 Feed</button>
             <button class="action-btn add-isopod-btn">🐛 Add Isopod</button>
+            <button class="action-btn add-springtail-btn">🦗 Springtail</button>
+            <button class="action-btn add-frog-btn">🐸 Dart Frog</button>
+            <button class="action-btn glass-btn">👁️ Glass</button>
           </div>
         </div>
         <div class="hud-bottom-right">
@@ -165,6 +168,15 @@ export class GameHUD {
 
     const addIsopodBtn = this.element.querySelector('.add-isopod-btn')
     addIsopodBtn.addEventListener('click', () => this.handleAddIsopod())
+
+    const addSpringtailBtn = this.element.querySelector('.add-springtail-btn')
+    addSpringtailBtn.addEventListener('click', () => this.handleAddSpringtail())
+
+    const addFrogBtn = this.element.querySelector('.add-frog-btn')
+    addFrogBtn.addEventListener('click', () => this.handleAddFrog())
+
+    const glassBtn = this.element.querySelector('.glass-btn')
+    glassBtn.addEventListener('click', () => this.handleToggleGlass())
 
     // ESC key to pause
     this.escHandler = (e) => {
@@ -250,6 +262,57 @@ export class GameHUD {
       uiManager.notify('Added a Powder Blue Isopod!', 'success', 2000)
     } else {
       uiManager.notify('Failed to add isopod', 'warning', 2000)
+    }
+  }
+
+  /**
+   * Handle adding springtails
+   */
+  async handleAddSpringtail() {
+    if (!this.creatureManager) {
+      uiManager.notify('Creature system not initialized', 'warning', 2000)
+      return
+    }
+
+    // Add 10 springtails at once (they're colony creatures)
+    let added = 0
+    for (let i = 0; i < 10; i++) {
+      const creature = await this.creatureManager.addCreature('springtails')
+      if (creature) added++
+    }
+
+    if (added > 0) {
+      uiManager.notify(`Added ${added} Springtails!`, 'success', 2000)
+    } else {
+      uiManager.notify('Failed to add springtails', 'warning', 2000)
+    }
+  }
+
+  /**
+   * Handle adding a dart frog
+   */
+  async handleAddFrog() {
+    if (!this.creatureManager) {
+      uiManager.notify('Creature system not initialized', 'warning', 2000)
+      return
+    }
+
+    const creature = await this.creatureManager.addCreature('dendrobates_auratus')
+    if (creature) {
+      uiManager.notify('Added a Green and Black Dart Frog!', 'success', 2000)
+    } else {
+      uiManager.notify('Failed to add dart frog', 'warning', 2000)
+    }
+  }
+
+  /**
+   * Handle glass visibility toggle
+   */
+  handleToggleGlass() {
+    if (window.terrarium) {
+      window.terrarium.toggleGlassVisibility()
+      const isVisible = window.terrarium.glassVisible
+      uiManager.notify(isVisible ? 'Glass visible' : 'Glass hidden', 'info', 1500)
     }
   }
 

@@ -127,6 +127,9 @@ function initGame() {
   // Apply initial quality settings
   applyQualitySettings(gameState.getSetting('graphics', 'quality'))
 
+  // Expose terrarium globally for HUD glass toggle
+  window.terrarium = terrarium
+
   console.log('Game initialized')
 }
 

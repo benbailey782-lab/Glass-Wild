@@ -4,7 +4,9 @@
 
 // Species file path mapping (files served from public directory)
 const SPECIES_PATHS = {
-  powder_blue_isopod: '/data/species/terrestrial/cleanup-crew/powder-blue-isopod.json'
+  powder_blue_isopod: '/data/species/terrestrial/cleanup-crew/powder-blue-isopod.json',
+  springtails: '/data/species/terrestrial/cleanup-crew/springtails.json',
+  dendrobates_auratus: '/data/species/terrestrial/amphibians/dart-frogs/dendrobates-auratus.json'
 }
 
 // Cache for loaded species data
