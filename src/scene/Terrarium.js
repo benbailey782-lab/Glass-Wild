@@ -544,4 +544,85 @@ export class Terrarium {
       }
     }
   }
+
+  /**
+   * Get the bounds of the terrarium floor where creatures can move
+   * @returns {Object} - { min: {x, z}, max: {x, z} }
+   */
+  getBounds() {
+    const padding = 1.5 // Stay away from walls
+    const halfSize = (this.size / 2) - padding
+    const substrateHeight = 2.5
+
+    return {
+      min: { x: -halfSize, y: substrateHeight, z: -halfSize },
+      max: { x: halfSize, y: substrateHeight, z: halfSize }
+    }
+  }
+
+  /**
+   * Get positions where leaf litter is available for detritivores
+   * @returns {Array<{x, y, z}>} - Array of positions
+   */
+  getLeafLitterPositions() {
+    const positions = []
+    const bounds = this.getBounds()
+    const substrateHeight = 2.5
+
+    // Leaf litter is scattered across the substrate
+    // Return positions in a grid pattern with some randomization
+    const gridSize = 2 // 2 unit grid
+    for (let x = bounds.min.x; x <= bounds.max.x; x += gridSize) {
+      for (let z = bounds.min.z; z <= bounds.max.z; z += gridSize) {
+        positions.push({
+          x: x + (Math.random() - 0.5) * gridSize * 0.8,
+          y: substrateHeight + 0.1,
+          z: z + (Math.random() - 0.5) * gridSize * 0.8
+        })
+      }
+    }
+
+    return positions
+  }
+
+  /**
+   * Get positions where creatures can hide (under rocks, wood, plants)
+   * @returns {Array<{x, y, z}>} - Array of hiding spot positions
+   */
+  getHidingSpots() {
+    const substrateHeight = 2.5
+
+    // Hiding spots are near rocks, under wood, and in plant bases
+    const hidingSpots = [
+      // Near rocks
+      { x: -6, y: substrateHeight, z: 6 },
+      { x: 5, y: substrateHeight, z: -4 },
+      { x: -3, y: substrateHeight, z: -6 },
+      { x: 7, y: substrateHeight, z: 3 },
+      // Under wood/branches
+      { x: -5, y: substrateHeight, z: 1 },
+      { x: 0, y: substrateHeight, z: -1 },
+      { x: 4, y: substrateHeight, z: -2 },
+      // Near plant bases (ferns and ground plants)
+      { x: -7, y: substrateHeight, z: -5 },
+      { x: 6, y: substrateHeight, z: -6 },
+      { x: -5, y: substrateHeight, z: 7 },
+      { x: 3, y: substrateHeight, z: 6 },
+      { x: -2, y: substrateHeight, z: -3 },
+      // Moss patches (good hiding)
+      { x: -5, y: substrateHeight, z: -5 },
+      { x: 4, y: substrateHeight, z: -6 },
+      { x: -6, y: substrateHeight, z: 4 }
+    ]
+
+    return hidingSpots
+  }
+
+  /**
+   * Check if the terrarium has hiding spots
+   * @returns {boolean}
+   */
+  hasHidingSpots() {
+    return this.getHidingSpots().length > 0
+  }
 }

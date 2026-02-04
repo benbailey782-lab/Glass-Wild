@@ -12,6 +12,9 @@ export class GameHUD {
     this.pauseMenu = null
     this.fpsCounter = null
 
+    // Reference to creature manager (set via setCreatureManager)
+    this.creatureManager = null
+
     // References to dynamic elements
     this.dayDisplay = null
     this.tempDisplay = null
@@ -21,6 +24,23 @@ export class GameHUD {
 
     this.create()
     this.bindEvents()
+  }
+
+  /**
+   * Set the creature manager reference
+   * @param {CreatureManager} creatureManager
+   */
+  setCreatureManager(creatureManager) {
+    this.creatureManager = creatureManager
+
+    // Listen for creature events
+    if (this.creatureManager) {
+      this.creatureManager.on('creatureAdded', () => this.updatePopulationDisplay())
+      this.creatureManager.on('creatureRemoved', () => this.updatePopulationDisplay())
+      this.creatureManager.on('creatureDeath', (data) => {
+        uiManager.notify(`A ${data.creature.speciesData.identity.common_name} died (${data.cause})`, 'warning', 3000)
+      })
+    }
   }
 
   /**
@@ -77,6 +97,7 @@ export class GameHUD {
           <div class="quick-actions">
             <button class="action-btn mist-btn">💧 Mist</button>
             <button class="action-btn feed-btn">🍖 Feed</button>
+            <button class="action-btn add-isopod-btn">🐛 Add Isopod</button>
           </div>
         </div>
         <div class="hud-bottom-right">
@@ -141,6 +162,9 @@ export class GameHUD {
 
     const feedBtn = this.element.querySelector('.feed-btn')
     feedBtn.addEventListener('click', () => this.handleFeed())
+
+    const addIsopodBtn = this.element.querySelector('.add-isopod-btn')
+    addIsopodBtn.addEventListener('click', () => this.handleAddIsopod())
 
     // ESC key to pause
     this.escHandler = (e) => {
@@ -213,6 +237,32 @@ export class GameHUD {
   }
 
   /**
+   * Handle adding an isopod
+   */
+  async handleAddIsopod() {
+    if (!this.creatureManager) {
+      uiManager.notify('Creature system not initialized', 'warning', 2000)
+      return
+    }
+
+    const creature = await this.creatureManager.addCreature('powder_blue_isopod')
+    if (creature) {
+      uiManager.notify('Added a Powder Blue Isopod!', 'success', 2000)
+    } else {
+      uiManager.notify('Failed to add isopod', 'warning', 2000)
+    }
+  }
+
+  /**
+   * Update population display from creature manager
+   */
+  updatePopulationDisplay() {
+    if (this.creatureManager) {
+      this.populationDisplay.textContent = this.creatureManager.getPopulation()
+    }
+  }
+
+  /**
    * Show pause menu
    */
   showPauseMenu() {
@@ -233,7 +283,13 @@ export class GameHUD {
     this.dayDisplay.textContent = `Day ${tank.gameDay}`
     this.tempDisplay.textContent = `${tank.environment.temperature}°F`
     this.humidityDisplay.textContent = `${tank.environment.humidity}%`
-    this.populationDisplay.textContent = tank.creatures?.length || 0
+
+    // Use creature manager for accurate population count
+    if (this.creatureManager) {
+      this.populationDisplay.textContent = this.creatureManager.getPopulation()
+    } else {
+      this.populationDisplay.textContent = tank.creatures?.length || 0
+    }
   }
 
   /**

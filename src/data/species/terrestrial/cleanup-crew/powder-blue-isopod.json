@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "schema_version": "1.0",
+    "created": "2026-02-04",
+    "author": "Claude",
+    "status": "complete"
+  },
+  "identity": {
+    "id": "powder_blue_isopod",
+    "common_name": "Powder Blue Isopod",
+    "scientific_name": "Porcellionides pruinosus",
+    "category": "invertebrate",
+    "subcategory": "isopod",
+    "tier_unlock": 1,
+    "difficulty": "easy",
+    "price": 5,
+    "description": "A hardy, fast-breeding isopod perfect for bioactive setups. Their powder-blue coloration makes them easy to spot in leaf litter."
+  },
+  "physical": {
+    "size_adult_inches": 0.4,
+    "size_juvenile_inches": 0.1,
+    "lifespan_years_min": 1.5,
+    "lifespan_years_max": 2.5,
+    "colors_primary": ["powder_blue", "gray"],
+    "body_shape": "segmented"
+  },
+  "environment": {
+    "environment_type": ["terrestrial"],
+    "humidity_range_min": 50,
+    "humidity_range_max": 80,
+    "humidity_ideal": 65,
+    "temperature_range_min_f": 65,
+    "temperature_range_max_f": 85,
+    "temperature_ideal_f": 75,
+    "substrate_type": ["leaf_litter", "soil"],
+    "hides_required": 1,
+    "leaf_litter_required": true
+  },
+  "diet": {
+    "diet_type": "detritivore",
+    "food_items_primary": ["leaf_litter", "decaying_wood", "dead_plant_matter"],
+    "feeding_method": "grazer",
+    "meals_per_day": 0.5,
+    "hunger_rate_per_hour": 1.0,
+    "fasting_tolerance_days": 14,
+    "starvation_days": 21
+  },
+  "social": {
+    "social_type": "colony",
+    "min_group_size": 1,
+    "max_group_size": 500,
+    "ideal_group_size": 20,
+    "territorial": false
+  },
+  "reproduction": {
+    "reproduction_type": "live_bearer",
+    "sexual_maturity_days": 60,
+    "breeding_difficulty": "easy",
+    "clutch_size_average": 30,
+    "breeding_triggers": ["adequate_food", "proper_humidity"]
+  },
+  "behavior": {
+    "activity_pattern": "nocturnal",
+    "active_hours_start": 20,
+    "active_hours_end": 6,
+    "activity_level": "moderate",
+    "movement_style": "crawl",
+    "movement_speed_normal": 0.05,
+    "movement_speed_fast": 0.15,
+    "preferred_zone": "ground",
+    "hiding_behavior": "frequent",
+    "time_hidden_percent": 60
+  },
+  "stress": {
+    "stress_baseline": 10,
+    "stress_threshold_low": 30,
+    "stress_threshold_high": 70,
+    "stress_fatal_threshold": 95,
+    "stress_recovery_rate": 5.0,
+    "stress_sources": {
+      "low_humidity": { "threshold": 40, "stress_per_hour": 8 },
+      "high_temperature": { "threshold": 90, "stress_per_hour": 10 },
+      "no_hiding_spots": { "stress_per_hour": 5 },
+      "no_food": { "stress_per_hour": 3 },
+      "bright_light": { "stress_per_hour": 2 }
+    },
+    "hardiness": "hardy"
+  },
+  "personality_ranges": {
+    "boldness_min": 0.2,
+    "boldness_max": 0.6,
+    "boldness_default": 0.4,
+    "activity_min": 0.3,
+    "activity_max": 0.7,
+    "activity_default": 0.5
+  },
+  "category_specific": {
+    "invert_type": "crustacean",
+    "molts": true,
+    "molt_frequency_days": 14,
+    "exoskeleton": true,
+    "segments": 7,
+    "legs": 14,
+    "antennae": true,
+    "detritivore": true,
+    "cleanup_crew_rating": "excellent"
+  }
+}

@@ -16,6 +16,9 @@ import { Terrarium } from './scene/Terrarium.js'
 import { Lighting } from './scene/Lighting.js'
 import { Environment } from './scene/Environment.js'
 
+// Creature System
+import { CreatureManager } from './creatures/CreatureManager.js'
+
 // UI System
 import { gameState } from './core/GameState.js'
 import { uiManager } from './ui/UIManager.js'
@@ -34,6 +37,7 @@ let gameHUD = null
 // Three.js objects (initialized lazily)
 let scene, camera, renderer, composer, controls
 let terrarium, lighting, environment
+let creatureManager
 let clock
 let smaaEffect, bloomEffect, vignetteEffect, effectPass
 
@@ -104,6 +108,9 @@ function initGame() {
   // Terrarium
   terrarium = new Terrarium(20)
   scene.add(terrarium.group)
+
+  // Creature Manager
+  creatureManager = new CreatureManager(scene, terrarium, gameState)
 
   // Environment (fog, dust particles)
   environment = new Environment(scene, 20)
@@ -233,14 +240,21 @@ function animate() {
 
   // Skip updates if paused
   if (!gameState.isPaused) {
-    // Update play time
+    // Update play time and game time
     gameState.updatePlayTime(deltaTime * gameState.timeScale)
+    gameState.advanceGameTime(deltaTime)
 
     // Update systems with time scale
     const scaledDelta = deltaTime * gameState.timeScale
     terrarium.update(scaledDelta)
     environment.update(scaledDelta, elapsedTime)
     lighting.update(scaledDelta)
+
+    // Update creatures with game environment
+    if (creatureManager) {
+      const gameEnvironment = gameState.getEnvironment()
+      creatureManager.update(scaledDelta, gameEnvironment)
+    }
   }
 
   // Always update controls
@@ -323,6 +337,15 @@ function showGame() {
   if (!gameHUD) {
     gameHUD = new GameHUD()
   }
+
+  // Connect creature manager to HUD
+  if (creatureManager) {
+    gameHUD.setCreatureManager(creatureManager)
+
+    // Load saved creatures if any
+    creatureManager.loadFromGameState()
+  }
+
   gameHUD.show()
 
   // Start animation
@@ -402,4 +425,5 @@ if (import.meta.env?.DEV) {
   // Expose for debugging
   window.gameState = gameState
   window.uiManager = uiManager
+  window.creatureManager = creatureManager
 }

@@ -54,7 +54,10 @@
   color: var(--color-text);
 }
 
-#ui-root > * {
+/* Specific targeting for pointer-events to avoid blocking camera controls */
+#ui-root .landing-page,
+#ui-root .modal-backdrop,
+#ui-root .pause-menu {
   pointer-events: auto;
 }
 

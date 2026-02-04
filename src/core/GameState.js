@@ -195,6 +195,54 @@ export class GameState extends EventEmitter {
     this.emit('tankUpdated', this.currentTank)
   }
 
+  /**
+   * Get current environment conditions including day/night status
+   * @returns {Object} Environment data with isDay flag
+   */
+  getEnvironment() {
+    if (!this.currentTank) {
+      return {
+        temperature: 75,
+        humidity: 65,
+        isDay: true,
+        timeOfDay: 0.5
+      }
+    }
+
+    const { environment, timeOfDay } = this.currentTank
+    // Day is between 6am (0.25) and 8pm (0.833)
+    const isDay = timeOfDay >= 0.25 && timeOfDay < 0.833
+
+    return {
+      temperature: environment.temperature,
+      humidity: environment.humidity,
+      isDay,
+      timeOfDay
+    }
+  }
+
+  /**
+   * Advance game time
+   * @param {number} deltaTime - Time since last frame in seconds (real time)
+   */
+  advanceGameTime(deltaTime) {
+    if (!this.currentTank || this.isPaused) return
+
+    // Convert real time to game time based on time scale
+    // At 1x speed: 1 real second = 1 game minute
+    const gameMinutes = deltaTime * this.timeScale
+    const dayProgress = gameMinutes / (24 * 60) // Fraction of a day
+
+    this.currentTank.timeOfDay += dayProgress
+
+    // Handle day rollover
+    if (this.currentTank.timeOfDay >= 1) {
+      this.currentTank.timeOfDay -= 1
+      this.currentTank.gameDay += 1
+      this.emit('newDay', this.currentTank.gameDay)
+    }
+  }
+
   // ============================================
   // Time Control
   // ============================================
