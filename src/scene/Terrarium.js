@@ -5,6 +5,24 @@ export class Terrarium {
     this.size = size
     this.group = new THREE.Group()
 
+    // Separate groups for toggle visibility
+    this.wallsGroup = new THREE.Group()
+    this.floorGroup = new THREE.Group()
+    this.frameGroup = new THREE.Group()
+    this.contentsGroup = new THREE.Group()
+
+    this.group.add(this.wallsGroup)
+    this.group.add(this.floorGroup)
+    this.group.add(this.frameGroup)
+    this.group.add(this.contentsGroup)
+
+    // Glass visibility state
+    this.glassVisible = true
+    this.glassOpacity = 1
+    this.targetGlassOpacity = 1
+    this.wallMeshes = []
+    this.glassMaterial = null
+
     this.createGlassEnclosure()
     this.createSubstrate()
     this.createDecorations()
@@ -16,81 +34,115 @@ export class Terrarium {
     const glassThickness = 0.3
     const frameThickness = 0.8
 
-    // Glass material - realistic with transmission
-    const glassMaterial = new THREE.MeshPhysicalMaterial({
+    // Premium glass material - realistic with subtle green tint
+    this.glassMaterial = new THREE.MeshPhysicalMaterial({
       transmission: 0.95,
-      thickness: glassThickness * 5,
+      thickness: 2,
       roughness: 0.05,
       metalness: 0,
       ior: 1.5,
       envMapIntensity: 1,
       clearcoat: 1,
-      clearcoatRoughness: 0.1,
+      clearcoatRoughness: 0.05,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.15,
       side: THREE.DoubleSide,
-      color: new THREE.Color(0xffffff),
-      attenuationColor: new THREE.Color(0xe8f4f0),
-      attenuationDistance: 5
+      color: new THREE.Color(0xf0fff8), // Subtle green tint
+      attenuationColor: new THREE.Color(0xe0f5ed), // Green-tinted attenuation
+      attenuationDistance: 3,
+      specularIntensity: 1,
+      specularColor: new THREE.Color(0xffffff),
+      reflectivity: 0.5,
+      sheen: 0,
+      sheenRoughness: 0.25,
+      sheenColor: new THREE.Color(0xffffff)
     })
 
-    // Frame material - dark metal edges
+    // Frame material - dark metal edges with slight sheen
     const frameMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a1a1a,
-      metalness: 0.8,
-      roughness: 0.3
+      metalness: 0.85,
+      roughness: 0.25,
+      envMapIntensity: 0.8
     })
 
-    // Create glass panels (5 sides - open top)
-    const panels = [
-      { pos: [0, size/2, size/2 + glassThickness/2], rot: [0, 0, 0], size: [size, size, glassThickness] }, // back
-      { pos: [0, size/2, -size/2 - glassThickness/2], rot: [0, 0, 0], size: [size, size, glassThickness] }, // front
-      { pos: [size/2 + glassThickness/2, size/2, 0], rot: [0, Math.PI/2, 0], size: [size, size, glassThickness] }, // right
-      { pos: [-size/2 - glassThickness/2, size/2, 0], rot: [0, Math.PI/2, 0], size: [size, size, glassThickness] }, // left
-      { pos: [0, 0, 0], rot: [Math.PI/2, 0, 0], size: [size, size, glassThickness] } // bottom
+    // Wall panels (4 sides - front, back, left, right)
+    const wallPanels = [
+      { pos: [0, size/2, size/2 + glassThickness/2], rot: [0, 0, 0], size: [size, size, glassThickness], name: 'back' },
+      { pos: [0, size/2, -size/2 - glassThickness/2], rot: [0, 0, 0], size: [size, size, glassThickness], name: 'front' },
+      { pos: [size/2 + glassThickness/2, size/2, 0], rot: [0, Math.PI/2, 0], size: [size, size, glassThickness], name: 'right' },
+      { pos: [-size/2 - glassThickness/2, size/2, 0], rot: [0, Math.PI/2, 0], size: [size, size, glassThickness], name: 'left' }
     ]
 
-    panels.forEach(panel => {
+    wallPanels.forEach(panel => {
       const geo = new THREE.BoxGeometry(...panel.size)
-      const mesh = new THREE.Mesh(geo, glassMaterial)
+      const mesh = new THREE.Mesh(geo, this.glassMaterial)
       mesh.position.set(...panel.pos)
       mesh.rotation.set(...panel.rot)
       mesh.castShadow = true
       mesh.receiveShadow = true
-      this.group.add(mesh)
+      mesh.name = `wall_${panel.name}`
+      this.wallsGroup.add(mesh)
+      this.wallMeshes.push(mesh)
     })
+
+    // Floor panel (separate from walls for toggle)
+    const floorGeo = new THREE.BoxGeometry(size, glassThickness, size)
+    const floorMesh = new THREE.Mesh(floorGeo, this.glassMaterial.clone())
+    floorMesh.position.set(0, 0, 0)
+    floorMesh.receiveShadow = true
+    floorMesh.name = 'floor'
+    this.floorGroup.add(floorMesh)
 
     // Create frame edges (metal trim)
     const edgePositions = [
       // Vertical edges
-      { pos: [size/2, size/2, size/2], rot: [0, 0, 0] },
-      { pos: [-size/2, size/2, size/2], rot: [0, 0, 0] },
-      { pos: [size/2, size/2, -size/2], rot: [0, 0, 0] },
-      { pos: [-size/2, size/2, -size/2], rot: [0, 0, 0] },
+      { pos: [size/2, size/2, size/2], rot: [0, 0, 0], height: size },
+      { pos: [-size/2, size/2, size/2], rot: [0, 0, 0], height: size },
+      { pos: [size/2, size/2, -size/2], rot: [0, 0, 0], height: size },
+      { pos: [-size/2, size/2, -size/2], rot: [0, 0, 0], height: size },
       // Bottom horizontal edges
-      { pos: [0, 0, size/2], rot: [0, 0, Math.PI/2] },
-      { pos: [0, 0, -size/2], rot: [0, 0, Math.PI/2] },
-      { pos: [size/2, 0, 0], rot: [Math.PI/2, 0, 0] },
-      { pos: [-size/2, 0, 0], rot: [Math.PI/2, 0, 0] },
+      { pos: [0, 0, size/2], rot: [0, 0, Math.PI/2], height: size },
+      { pos: [0, 0, -size/2], rot: [0, 0, Math.PI/2], height: size },
+      { pos: [size/2, 0, 0], rot: [Math.PI/2, 0, 0], height: size },
+      { pos: [-size/2, 0, 0], rot: [Math.PI/2, 0, 0], height: size },
       // Top horizontal edges
-      { pos: [0, size, size/2], rot: [0, 0, Math.PI/2] },
-      { pos: [0, size, -size/2], rot: [0, 0, Math.PI/2] },
-      { pos: [size/2, size, 0], rot: [Math.PI/2, 0, 0] },
-      { pos: [-size/2, size, 0], rot: [Math.PI/2, 0, 0] }
+      { pos: [0, size, size/2], rot: [0, 0, Math.PI/2], height: size },
+      { pos: [0, size, -size/2], rot: [0, 0, Math.PI/2], height: size },
+      { pos: [size/2, size, 0], rot: [Math.PI/2, 0, 0], height: size },
+      { pos: [-size/2, size, 0], rot: [Math.PI/2, 0, 0], height: size }
     ]
 
-    const edgeGeo = new THREE.BoxGeometry(frameThickness, size, frameThickness)
-    const shortEdgeGeo = new THREE.BoxGeometry(frameThickness, size + frameThickness, frameThickness)
-
     edgePositions.forEach((edge, i) => {
-      const geo = i < 4 ? edgeGeo : shortEdgeGeo
+      const isVertical = i < 4
+      const geo = new THREE.BoxGeometry(
+        frameThickness,
+        edge.height + (isVertical ? 0 : frameThickness),
+        frameThickness
+      )
       const mesh = new THREE.Mesh(geo, frameMaterial)
       mesh.position.set(...edge.pos)
       mesh.rotation.set(...edge.rot)
       mesh.castShadow = true
       mesh.receiveShadow = true
-      this.group.add(mesh)
+
+      // Top frame edges go in wallsGroup (will hide with walls)
+      if (i >= 8) {
+        this.wallsGroup.add(mesh)
+      } else {
+        this.frameGroup.add(mesh)
+      }
     })
+  }
+
+  toggleGlassVisibility() {
+    this.glassVisible = !this.glassVisible
+    this.targetGlassOpacity = this.glassVisible ? 1 : 0
+  }
+
+  setGlassVisibility(visible) {
+    this.glassVisible = visible
+    this.targetGlassOpacity = visible ? 1 : 0
   }
 
   createSubstrate() {
@@ -108,19 +160,37 @@ export class Terrarium {
     const drainage = new THREE.Mesh(drainageGeo, drainageMat)
     drainage.position.set(0, 0.3, 0)
     drainage.receiveShadow = true
-    this.group.add(drainage)
+    this.contentsGroup.add(drainage)
 
-    // Middle layer - substrate (rich soil)
-    const soilGeo = new THREE.BoxGeometry(size - 0.6, substrateHeight - 0.6, size - 0.6)
+    // Middle layer - substrate (rich soil) with bump texture
+    const soilGeo = new THREE.BoxGeometry(size - 0.6, substrateHeight - 0.6, size - 0.6, 32, 1, 32)
+
+    // Displace top vertices for uneven soil surface
+    const positions = soilGeo.attributes.position
+    for (let i = 0; i < positions.count; i++) {
+      const y = positions.getY(i)
+      if (y > 0) { // Only displace top vertices
+        const x = positions.getX(i)
+        const z = positions.getZ(i)
+        // Create natural-looking displacement using noise
+        const noise = Math.sin(x * 0.8) * Math.cos(z * 0.8) * 0.3 +
+                     Math.sin(x * 1.5 + 1) * Math.cos(z * 1.2 + 0.5) * 0.2 +
+                     Math.random() * 0.15
+        positions.setY(i, y + noise)
+      }
+    }
+    soilGeo.computeVertexNormals()
+
     const soilMat = new THREE.MeshStandardMaterial({
       color: 0x3d2817,
       roughness: 1,
-      metalness: 0
+      metalness: 0,
+      bumpScale: 0.05
     })
     const soil = new THREE.Mesh(soilGeo, soilMat)
     soil.position.set(0, 0.6 + (substrateHeight - 0.6) / 2, 0)
     soil.receiveShadow = true
-    this.group.add(soil)
+    this.contentsGroup.add(soil)
 
     // Top layer - leaf litter and moss (uneven surface)
     this.createLeafLitter(substrateHeight)
@@ -129,46 +199,51 @@ export class Terrarium {
 
   createLeafLitter(baseHeight) {
     const size = this.size
-    const leafMat = new THREE.MeshStandardMaterial({
-      color: 0x5c4033,
-      roughness: 0.95,
-      metalness: 0
-    })
+
+    // Multiple leaf materials for variety
+    const leafMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.95, metalness: 0 }),
+      new THREE.MeshStandardMaterial({ color: 0x6b4a3a, roughness: 0.95, metalness: 0 }),
+      new THREE.MeshStandardMaterial({ color: 0x4a3628, roughness: 0.95, metalness: 0 })
+    ]
 
     // Create random leaf-like shapes scattered on substrate
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 50; i++) {
       const leafGeo = new THREE.SphereGeometry(
-        0.3 + Math.random() * 0.4,
+        0.3 + Math.random() * 0.5,
         8,
         6
       )
-      leafGeo.scale(1, 0.2, 0.7 + Math.random() * 0.3)
+      leafGeo.scale(1, 0.15 + Math.random() * 0.1, 0.6 + Math.random() * 0.4)
 
+      const leafMat = leafMaterials[Math.floor(Math.random() * leafMaterials.length)]
       const leaf = new THREE.Mesh(leafGeo, leafMat)
       leaf.position.set(
         (Math.random() - 0.5) * (size - 3),
-        baseHeight + Math.random() * 0.3,
+        baseHeight + Math.random() * 0.4,
         (Math.random() - 0.5) * (size - 3)
       )
       leaf.rotation.set(
-        Math.random() * 0.3,
+        Math.random() * 0.4 - 0.2,
         Math.random() * Math.PI * 2,
-        Math.random() * 0.3
+        Math.random() * 0.4 - 0.2
       )
       leaf.receiveShadow = true
       leaf.castShadow = true
-      this.group.add(leaf)
+      this.contentsGroup.add(leaf)
     }
   }
 
   createMoss(baseHeight) {
     const size = this.size
 
-    // Moss material - vibrant green
+    // Moss material - vibrant green with slight subsurface feel
     const mossMat = new THREE.MeshStandardMaterial({
       color: 0x4a7c4e,
-      roughness: 0.95,
-      metalness: 0
+      roughness: 0.92,
+      metalness: 0,
+      emissive: 0x0a1f0a,
+      emissiveIntensity: 0.05
     })
 
     // Create moss patches using clusters of small spheres
@@ -178,28 +253,30 @@ export class Terrarium {
       { x: -6, z: 4, scale: 1 },
       { x: 6, z: 5, scale: 0.9 },
       { x: 0, z: 7, scale: 0.7 },
-      { x: -3, z: 2, scale: 0.6 }
+      { x: -3, z: 2, scale: 0.6 },
+      { x: 2, z: 3, scale: 0.5 },
+      { x: -7, z: -2, scale: 0.8 }
     ]
 
     mossPatches.forEach(patch => {
-      const clusterSize = 8 + Math.floor(Math.random() * 8)
+      const clusterSize = 10 + Math.floor(Math.random() * 10)
       for (let i = 0; i < clusterSize; i++) {
         const mossGeo = new THREE.SphereGeometry(
-          0.3 + Math.random() * 0.4 * patch.scale,
+          0.25 + Math.random() * 0.35 * patch.scale,
           8,
           6
         )
-        mossGeo.scale(1, 0.5, 1)
+        mossGeo.scale(1, 0.4 + Math.random() * 0.2, 1)
 
         const moss = new THREE.Mesh(mossGeo, mossMat)
         moss.position.set(
-          patch.x + (Math.random() - 0.5) * 2 * patch.scale,
-          baseHeight + Math.random() * 0.2,
-          patch.z + (Math.random() - 0.5) * 2 * patch.scale
+          patch.x + (Math.random() - 0.5) * 2.5 * patch.scale,
+          baseHeight + Math.random() * 0.25,
+          patch.z + (Math.random() - 0.5) * 2.5 * patch.scale
         )
         moss.receiveShadow = true
         moss.castShadow = true
-        this.group.add(moss)
+        this.contentsGroup.add(moss)
       }
     })
   }
@@ -214,12 +291,12 @@ export class Terrarium {
     const size = this.size
     const baseHeight = 2.5
 
-    // Rock material
-    const rockMat = new THREE.MeshStandardMaterial({
-      color: 0x6b6b6b,
-      roughness: 0.85,
-      metalness: 0.1
-    })
+    // Rock materials with slight variation
+    const rockMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0x6b6b6b, roughness: 0.85, metalness: 0.1 }),
+      new THREE.MeshStandardMaterial({ color: 0x5a5a5a, roughness: 0.9, metalness: 0.05 }),
+      new THREE.MeshStandardMaterial({ color: 0x7a7a7a, roughness: 0.8, metalness: 0.15 })
+    ]
 
     // Create a few natural-looking rocks
     const rockPositions = [
@@ -229,7 +306,7 @@ export class Terrarium {
       { x: 7, z: 3, scale: 1.2, y: 0 }
     ]
 
-    rockPositions.forEach(rock => {
+    rockPositions.forEach((rock, idx) => {
       // Use icosahedron for natural rock shape
       const rockGeo = new THREE.IcosahedronGeometry(rock.scale, 1)
 
@@ -241,30 +318,31 @@ export class Terrarium {
         const z = positions.getZ(i)
         positions.setXYZ(
           i,
-          x + (Math.random() - 0.5) * 0.5,
-          y * 0.7 + (Math.random() - 0.5) * 0.3,
-          z + (Math.random() - 0.5) * 0.5
+          x + (Math.random() - 0.5) * 0.6,
+          y * 0.65 + (Math.random() - 0.5) * 0.4,
+          z + (Math.random() - 0.5) * 0.6
         )
       }
       rockGeo.computeVertexNormals()
 
+      const rockMat = rockMaterials[idx % rockMaterials.length]
       const mesh = new THREE.Mesh(rockGeo, rockMat)
       mesh.position.set(rock.x, baseHeight + rock.scale * 0.5, rock.z)
       mesh.rotation.set(
-        Math.random() * 0.3,
+        Math.random() * 0.4,
         Math.random() * Math.PI * 2,
-        Math.random() * 0.3
+        Math.random() * 0.4
       )
       mesh.castShadow = true
       mesh.receiveShadow = true
-      this.group.add(mesh)
+      this.contentsGroup.add(mesh)
     })
   }
 
   createWood() {
     const baseHeight = 2.5
 
-    // Wood/bark material
+    // Wood/bark material with more detail
     const woodMat = new THREE.MeshStandardMaterial({
       color: 0x4a3728,
       roughness: 0.9,
@@ -280,11 +358,11 @@ export class Terrarium {
       new THREE.Vector3(6, baseHeight + 1, -3)
     ])
 
-    const branchGeo = new THREE.TubeGeometry(branchCurve, 20, 0.6, 8, false)
+    const branchGeo = new THREE.TubeGeometry(branchCurve, 24, 0.6, 10, false)
     const branch = new THREE.Mesh(branchGeo, woodMat)
     branch.castShadow = true
     branch.receiveShadow = true
-    this.group.add(branch)
+    this.contentsGroup.add(branch)
 
     // Add a smaller secondary branch
     const branch2Curve = new THREE.CatmullRomCurve3([
@@ -293,11 +371,24 @@ export class Terrarium {
       new THREE.Vector3(2, baseHeight + 6, 3)
     ])
 
-    const branch2Geo = new THREE.TubeGeometry(branch2Curve, 12, 0.3, 8, false)
+    const branch2Geo = new THREE.TubeGeometry(branch2Curve, 16, 0.3, 8, false)
     const branch2 = new THREE.Mesh(branch2Geo, woodMat)
     branch2.castShadow = true
     branch2.receiveShadow = true
-    this.group.add(branch2)
+    this.contentsGroup.add(branch2)
+
+    // Add third branch for more interest
+    const branch3Curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(3, baseHeight + 2.5, -2),
+      new THREE.Vector3(4, baseHeight + 4, -1),
+      new THREE.Vector3(5, baseHeight + 5.5, 1)
+    ])
+
+    const branch3Geo = new THREE.TubeGeometry(branch3Curve, 12, 0.25, 8, false)
+    const branch3 = new THREE.Mesh(branch3Geo, woodMat)
+    branch3.castShadow = true
+    branch3.receiveShadow = true
+    this.contentsGroup.add(branch3)
   }
 
   createPlants() {
@@ -312,17 +403,20 @@ export class Terrarium {
     this.createGroundPlant(3, baseHeight, 6, 0.8)
     this.createGroundPlant(-2, baseHeight, -3, 0.6)
     this.createGroundPlant(5, baseHeight, 1, 0.7)
+    this.createGroundPlant(-8, baseHeight, 0, 0.5)
   }
 
   createFern(x, y, z, scale) {
     const fernMat = new THREE.MeshStandardMaterial({
       color: 0x2d5a27,
-      roughness: 0.8,
+      roughness: 0.75,
       metalness: 0,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      emissive: 0x0a1f0a,
+      emissiveIntensity: 0.03
     })
 
-    const frondCount = 6 + Math.floor(Math.random() * 4)
+    const frondCount = 7 + Math.floor(Math.random() * 5)
     const fernGroup = new THREE.Group()
 
     for (let i = 0; i < frondCount; i++) {
@@ -343,19 +437,21 @@ export class Terrarium {
     }
 
     fernGroup.position.set(x, y, z)
-    this.group.add(fernGroup)
+    this.contentsGroup.add(fernGroup)
   }
 
   createGroundPlant(x, y, z, scale) {
     const plantMat = new THREE.MeshStandardMaterial({
       color: 0x3a6b35,
-      roughness: 0.8,
+      roughness: 0.75,
       metalness: 0,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      emissive: 0x0a150a,
+      emissiveIntensity: 0.03
     })
 
     const plantGroup = new THREE.Group()
-    const leafCount = 8 + Math.floor(Math.random() * 6)
+    const leafCount = 10 + Math.floor(Math.random() * 8)
 
     for (let i = 0; i < leafCount; i++) {
       const angle = (i / leafCount) * Math.PI * 2 + Math.random() * 0.2
@@ -375,7 +471,7 @@ export class Terrarium {
     }
 
     plantGroup.position.set(x, y, z)
-    this.group.add(plantGroup)
+    this.contentsGroup.add(plantGroup)
   }
 
   createMoisture() {
@@ -385,9 +481,10 @@ export class Terrarium {
       roughness: 0,
       metalness: 0,
       ior: 1.33,
-      thickness: 0.1,
+      thickness: 0.15,
       transparent: true,
-      opacity: 0.6
+      opacity: 0.7,
+      envMapIntensity: 1.5
     })
 
     const size = this.size
@@ -401,11 +498,11 @@ export class Terrarium {
     ]
 
     panels.forEach(panel => {
-      const dropletCount = 15 + Math.floor(Math.random() * 10)
+      const dropletCount = 20 + Math.floor(Math.random() * 15)
       for (let i = 0; i < dropletCount; i++) {
-        const dropletSize = 0.1 + Math.random() * 0.2
+        const dropletSize = 0.08 + Math.random() * 0.18
         const dropletGeo = new THREE.SphereGeometry(dropletSize, 8, 6)
-        dropletGeo.scale(1, 1.5, 0.3)
+        dropletGeo.scale(1, 1.6, 0.25)
 
         const droplet = new THREE.Mesh(dropletGeo, dropletMat)
 
@@ -416,13 +513,35 @@ export class Terrarium {
 
         droplet.position.set(x, y, z)
         droplet.lookAt(x + panel.normal[0], y, z + panel.normal[2])
-        this.group.add(droplet)
+        this.wallsGroup.add(droplet) // Droplets hide with walls
       }
     })
   }
 
-  update() {
-    // Animation updates will go here
-    // For now, subtle ambient movement could be added
+  update(deltaTime = 0.016) {
+    // Smooth glass opacity transition
+    if (this.glassOpacity !== this.targetGlassOpacity) {
+      const speed = 3.3 // ~0.3 second transition
+      const diff = this.targetGlassOpacity - this.glassOpacity
+
+      if (Math.abs(diff) < 0.01) {
+        this.glassOpacity = this.targetGlassOpacity
+      } else {
+        this.glassOpacity += diff * speed * deltaTime
+      }
+
+      // Update material transmission based on opacity
+      if (this.glassMaterial) {
+        this.glassMaterial.transmission = 0.95 * this.glassOpacity
+        this.glassMaterial.opacity = 0.15 * this.glassOpacity
+
+        // When fully hidden, disable the walls for performance
+        if (this.glassOpacity < 0.01) {
+          this.wallsGroup.visible = false
+        } else {
+          this.wallsGroup.visible = true
+        }
+      }
+    }
   }
 }

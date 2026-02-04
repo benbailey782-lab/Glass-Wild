@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "postprocessing": "^6.38.2",
     "three": "^0.170.0"
   },
   "devDependencies": {

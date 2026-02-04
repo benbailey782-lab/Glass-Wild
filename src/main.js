@@ -1,136 +1,252 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { Terrarium } from './scene/Terrarium.js'
+import {
+  EffectComposer,
+  EffectPass,
+  RenderPass,
+  BloomEffect,
+  VignetteEffect,
+  ToneMappingEffect,
+  ToneMappingMode,
+  SMAAEffect,
+  SMAAPreset
+} from 'postprocessing'
 
-// Scene setup
+import { Terrarium } from './scene/Terrarium.js'
+import { Lighting } from './scene/Lighting.js'
+import { Environment } from './scene/Environment.js'
+import { HUD } from './ui/HUD.js'
+
+// ============================================================
+// SCENE SETUP
+// ============================================================
+
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x1a1a2e)
 
-// Camera - positioned to see the terrarium nicely
+// Camera - positioned for premium product shot feel
 const camera = new THREE.PerspectiveCamera(
-  45,
+  40, // Slightly tighter FOV for product photography feel
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 )
-camera.position.set(60, 40, 60)
+camera.position.set(55, 35, 55)
 
-// Renderer with physically correct lighting
+// ============================================================
+// RENDERER
+// ============================================================
+
 const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  alpha: true
+  powerPreference: 'high-performance',
+  antialias: false, // Using SMAA post-process instead
+  stencil: false,
+  depth: true
 })
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.2
+renderer.toneMappingExposure = 1.1
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.outputColorSpace = THREE.SRGBColorSpace
 document.body.appendChild(renderer.domElement)
 
-// Orbit controls
+// ============================================================
+// POST-PROCESSING
+// ============================================================
+
+const composer = new EffectComposer(renderer)
+
+// Render pass
+const renderPass = new RenderPass(scene, camera)
+composer.addPass(renderPass)
+
+// SMAA anti-aliasing
+const smaaEffect = new SMAAEffect({
+  preset: SMAAPreset.HIGH
+})
+
+// Bloom effect - subtle glow
+const bloomEffect = new BloomEffect({
+  intensity: 0.35,
+  luminanceThreshold: 0.75,
+  luminanceSmoothing: 0.3,
+  mipmapBlur: true,
+  radius: 0.7
+})
+
+// Vignette - subtle darkening at edges
+const vignetteEffect = new VignetteEffect({
+  darkness: 0.4,
+  offset: 0.35
+})
+
+// Tone mapping (already done by renderer, but can add filmic adjustments)
+const toneMappingEffect = new ToneMappingEffect({
+  mode: ToneMappingMode.AGX,
+  resolution: 256,
+  whitePoint: 4.0,
+  middleGrey: 0.6
+})
+
+// Combined effect pass
+const effectPass = new EffectPass(
+  camera,
+  smaaEffect,
+  bloomEffect,
+  vignetteEffect,
+  toneMappingEffect
+)
+composer.addPass(effectPass)
+
+// ============================================================
+// ORBIT CONTROLS
+// ============================================================
+
 const controls = new OrbitControls(camera, renderer.domElement)
 controls.enableDamping = true
 controls.dampingFactor = 0.05
-controls.minDistance = 30
-controls.maxDistance = 150
-controls.maxPolarAngle = Math.PI / 2 + 0.3 // Allow slight look from below
-controls.target.set(0, 10, 0) // Focus on center of terrarium
+controls.minDistance = 25
+controls.maxDistance = 120
+controls.maxPolarAngle = Math.PI / 2 + 0.2
+controls.minPolarAngle = 0.2
+controls.target.set(0, 10, 0)
+controls.enablePan = false // Cleaner for product showcase
 
-// Lighting
-setupLighting(scene)
+// ============================================================
+// LIGHTING
+// ============================================================
 
-// Create terrarium (18" cube = ~45.7cm, we'll use 20 units for nice scale)
+const lighting = new Lighting(scene, renderer)
+
+// Load HDRI environment map asynchronously
+lighting.loadHDRI().then(() => {
+  console.log('HDRI environment loaded')
+}).catch((err) => {
+  console.warn('HDRI load failed, using fallback:', err)
+})
+
+// ============================================================
+// TERRARIUM
+// ============================================================
+
 const terrarium = new Terrarium(20)
 scene.add(terrarium.group)
 
-// Environment for reflections
-const pmremGenerator = new THREE.PMREMGenerator(renderer)
-scene.environment = pmremGenerator.fromScene(createEnvironment()).texture
+// ============================================================
+// ENVIRONMENT (fog, dust particles)
+// ============================================================
 
-// Animation loop
+const environment = new Environment(scene, 20)
+
+// ============================================================
+// HUD
+// ============================================================
+
+const hud = new HUD()
+
+// ============================================================
+// KEYBOARD CONTROLS
+// ============================================================
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'h' || event.key === 'H') {
+    terrarium.toggleGlassVisibility()
+    hud.updateGlassHint(terrarium.glassVisible)
+  }
+})
+
+// ============================================================
+// ANIMATION LOOP
+// ============================================================
+
+const clock = new THREE.Clock()
+
 function animate() {
   requestAnimationFrame(animate)
+
+  const deltaTime = clock.getDelta()
+  const elapsedTime = clock.getElapsedTime()
+
+  // Update systems
   controls.update()
-  terrarium.update()
-  renderer.render(scene, camera)
+  terrarium.update(deltaTime)
+  environment.update(deltaTime, elapsedTime)
+  lighting.update(deltaTime)
+
+  // Render with post-processing
+  composer.render()
 }
 
-// Start
 animate()
 
-// Handle resize
+// ============================================================
+// RESPONSIVE RESIZE
+// ============================================================
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
+  composer.setSize(window.innerWidth, window.innerHeight)
 })
 
-function setupLighting(scene) {
-  // Ambient light - soft fill
-  const ambientLight = new THREE.AmbientLight(0x404060, 0.5)
-  scene.add(ambientLight)
+// ============================================================
+// RENDER PIPELINE VISUALIZATION (for debugging)
+// ============================================================
 
-  // Main directional light - simulates sunlight/room light
-  const mainLight = new THREE.DirectionalLight(0xfff5e6, 2)
-  mainLight.position.set(30, 50, 20)
-  mainLight.castShadow = true
-  mainLight.shadow.mapSize.width = 2048
-  mainLight.shadow.mapSize.height = 2048
-  mainLight.shadow.camera.near = 10
-  mainLight.shadow.camera.far = 100
-  mainLight.shadow.camera.left = -30
-  mainLight.shadow.camera.right = 30
-  mainLight.shadow.camera.top = 30
-  mainLight.shadow.camera.bottom = -30
-  mainLight.shadow.bias = -0.0001
-  scene.add(mainLight)
-
-  // Secondary fill light from opposite side
-  const fillLight = new THREE.DirectionalLight(0xe6f0ff, 0.8)
-  fillLight.position.set(-20, 30, -10)
-  scene.add(fillLight)
-
-  // Subtle rim light for glass highlights
-  const rimLight = new THREE.DirectionalLight(0xffffff, 0.4)
-  rimLight.position.set(0, -10, -30)
-  scene.add(rimLight)
-
-  // Soft hemisphere light for natural feel
-  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x3d5c3d, 0.3)
-  scene.add(hemiLight)
-}
-
-function createEnvironment() {
-  // Create a simple environment for reflections
-  const envScene = new THREE.Scene()
-
-  // Gradient background sphere
-  const envGeo = new THREE.SphereGeometry(100, 32, 32)
-  const envMat = new THREE.MeshBasicMaterial({
-    side: THREE.BackSide,
-    vertexColors: true
-  })
-
-  // Add gradient colors to vertices
-  const colors = []
-  const positions = envGeo.attributes.position
-  for (let i = 0; i < positions.count; i++) {
-    const y = positions.getY(i)
-    const t = (y + 100) / 200 // normalize to 0-1
-    // Warm top to cool bottom gradient
-    const r = THREE.MathUtils.lerp(0.2, 0.9, t)
-    const g = THREE.MathUtils.lerp(0.2, 0.85, t)
-    const b = THREE.MathUtils.lerp(0.3, 0.8, t)
-    colors.push(r, g, b)
-  }
-  envGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-
-  const envMesh = new THREE.Mesh(envGeo, envMat)
-  envScene.add(envMesh)
-
-  // Add some lights to the env scene
-  envScene.add(new THREE.AmbientLight(0xffffff, 1))
-
-  return envScene
+if (import.meta.env?.DEV) {
+  console.log(`
+╔══════════════════════════════════════════════════════════════╗
+║                  GLASS WILD RENDER PIPELINE                  ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  ┌─────────────┐                                             ║
+║  │   Scene     │  Three.js Scene Graph                       ║
+║  │  (objects)  │  - Terrarium (glass, substrate, plants)     ║
+║  └──────┬──────┘  - Lighting (HDRI env + 3-point lights)     ║
+║         │         - Environment (fog planes, dust particles) ║
+║         ▼                                                    ║
+║  ┌─────────────┐                                             ║
+║  │  Renderer   │  WebGLRenderer                              ║
+║  │  Settings   │  - PCFSoftShadowMap                         ║
+║  └──────┬──────┘  - ACESFilmicToneMapping                    ║
+║         │         - sRGB Color Space                         ║
+║         ▼                                                    ║
+║  ┌─────────────────────────────────────────────────────────┐ ║
+║  │              POST-PROCESSING STACK                      │ ║
+║  │  ┌─────────────┐                                        │ ║
+║  │  │ RenderPass  │ → Base scene render                    │ ║
+║  │  └──────┬──────┘                                        │ ║
+║  │         ▼                                               │ ║
+║  │  ┌─────────────┐                                        │ ║
+║  │  │EffectPass   │ → Combined effects:                    │ ║
+║  │  │             │   • SMAA (anti-aliasing)               │ ║
+║  │  │             │   • Bloom (intensity: 0.35)            │ ║
+║  │  │             │   • Vignette (subtle edge darkening)   │ ║
+║  │  │             │   • AGX Tone Mapping                   │ ║
+║  │  └──────┬──────┘                                        │ ║
+║  └─────────┼───────────────────────────────────────────────┘ ║
+║            ▼                                                 ║
+║  ┌─────────────┐                                             ║
+║  │   Canvas    │  Final composited output                    ║
+║  └─────────────┘                                             ║
+║                                                              ║
+║  MATERIALS:                                                  ║
+║  • Glass: MeshPhysicalMaterial (transmission, IOR 1.5)       ║
+║  • Plants: MeshStandardMaterial (emissive glow)              ║
+║  • Substrate: Displaced geometry + varied materials          ║
+║                                                              ║
+║  ATMOSPHERE:                                                 ║
+║  • FogExp2 (depth-based, density 0.008)                      ║
+║  • Volumetric fog planes (4 layers)                          ║
+║  • Dust particles (150 points, additive blend)               ║
+║                                                              ║
+║  CONTROLS:                                                   ║
+║  • H key: Toggle glass walls (smooth 0.3s fade)              ║
+║  • Mouse: Orbit camera                                       ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+  `)
 }
