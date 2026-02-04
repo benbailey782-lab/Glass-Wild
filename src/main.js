@@ -86,16 +86,18 @@ function initGame() {
   // Post-processing
   setupPostProcessing()
 
-  // Orbit Controls
+  // Orbit Controls - Macro zoom capability for observing small creatures
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.05
-  controls.minDistance = 25
-  controls.maxDistance = 120
-  controls.maxPolarAngle = Math.PI / 2 + 0.2
-  controls.minPolarAngle = 0.2
-  controls.target.set(0, 10, 0)
-  controls.enablePan = false
+  controls.minDistance = 1           // Macro zoom (can get within 1 inch)
+  controls.maxDistance = 150         // Slightly more pull-back room
+  controls.maxPolarAngle = Math.PI / 2 + 0.3
+  controls.minPolarAngle = 0.1
+  controls.target.set(0, 5, 0)       // Lower default target
+  controls.enablePan = true          // Allow panning when zoomed in
+  controls.panSpeed = 0.5            // Gentle pan
+  controls.screenSpacePanning = true
 
   // Lighting
   lighting = new Lighting(scene, renderer)

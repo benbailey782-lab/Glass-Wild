@@ -35,11 +35,10 @@ export class Terrarium {
     this.rayDirection = new THREE.Vector3(0, -1, 0)
 
     this.createGlassEnclosure()
-    // DEBUG: Disabled for creature testing
-    // this.createSubstrate()
-    // this.createDecorations()
-    // this.createMoisture()
-    // this.buildHeightMap()
+    this.createSubstrate()
+    this.createDecorations()
+    this.createMoisture()
+    this.buildHeightMap()
   }
 
   createGlassEnclosure() {
@@ -578,11 +577,11 @@ export class Terrarium {
   getBounds() {
     const padding = 1.5 // Stay away from walls
     const halfSize = (this.size / 2) - padding
-    const floorHeight = 0.5 // DEBUG: Just above glass floor (was 2.5 for substrate)
+    const substrateHeight = 2.5 // Real substrate height
 
     return {
-      min: { x: -halfSize, y: floorHeight, z: -halfSize },
-      max: { x: halfSize, y: floorHeight, z: halfSize }
+      min: { x: -halfSize, y: substrateHeight, z: -halfSize },
+      max: { x: halfSize, y: substrateHeight + 5, z: halfSize }
     }
   }
 
@@ -593,7 +592,7 @@ export class Terrarium {
   getLeafLitterPositions() {
     const positions = []
     const bounds = this.getBounds()
-    const floorHeight = 0.5 // DEBUG: Just above glass floor (was 2.5 for substrate)
+    const substrateHeight = 2.5 // Real substrate height
 
     // Leaf litter is scattered across the substrate
     // Return positions in a grid pattern with some randomization
@@ -602,7 +601,7 @@ export class Terrarium {
       for (let z = bounds.min.z; z <= bounds.max.z; z += gridSize) {
         positions.push({
           x: x + (Math.random() - 0.5) * gridSize * 0.8,
-          y: floorHeight + 0.1,
+          y: substrateHeight + 0.1,
           z: z + (Math.random() - 0.5) * gridSize * 0.8
         })
       }
@@ -616,29 +615,29 @@ export class Terrarium {
    * @returns {Array<{x, y, z}>} - Array of hiding spot positions
    */
   getHidingSpots() {
-    const floorHeight = 0.5 // DEBUG: Just above glass floor (was 2.5 for substrate)
+    const substrateHeight = 2.5 // Real substrate height
 
     // Hiding spots are near rocks, under wood, and in plant bases
     const hidingSpots = [
       // Near rocks
-      { x: -6, y: floorHeight, z: 6 },
-      { x: 5, y: floorHeight, z: -4 },
-      { x: -3, y: floorHeight, z: -6 },
-      { x: 7, y: floorHeight, z: 3 },
+      { x: -6, y: substrateHeight, z: 6 },
+      { x: 5, y: substrateHeight, z: -4 },
+      { x: -3, y: substrateHeight, z: -6 },
+      { x: 7, y: substrateHeight, z: 3 },
       // Under wood/branches
-      { x: -5, y: floorHeight, z: 1 },
-      { x: 0, y: floorHeight, z: -1 },
-      { x: 4, y: floorHeight, z: -2 },
+      { x: -5, y: substrateHeight, z: 1 },
+      { x: 0, y: substrateHeight, z: -1 },
+      { x: 4, y: substrateHeight, z: -2 },
       // Near plant bases (ferns and ground plants)
-      { x: -7, y: floorHeight, z: -5 },
-      { x: 6, y: floorHeight, z: -6 },
-      { x: -5, y: floorHeight, z: 7 },
-      { x: 3, y: floorHeight, z: 6 },
-      { x: -2, y: floorHeight, z: -3 },
+      { x: -7, y: substrateHeight, z: -5 },
+      { x: 6, y: substrateHeight, z: -6 },
+      { x: -5, y: substrateHeight, z: 7 },
+      { x: 3, y: substrateHeight, z: 6 },
+      { x: -2, y: substrateHeight, z: -3 },
       // Moss patches (good hiding)
-      { x: -5, y: floorHeight, z: -5 },
-      { x: 4, y: floorHeight, z: -6 },
-      { x: -6, y: floorHeight, z: 4 }
+      { x: -5, y: substrateHeight, z: -5 },
+      { x: 4, y: substrateHeight, z: -6 },
+      { x: -6, y: substrateHeight, z: 4 }
     ]
 
     return hidingSpots
@@ -716,11 +715,6 @@ export class Terrarium {
    * @returns {number} - Interpolated height at the given position
    */
   getTerrainHeight(x, z) {
-    // DEBUG: Return flat floor height for creature testing
-    return 0.5
-
-    /*
-    // Original code - re-enable when terrain is back
     if (!this.heightMap) {
       return 2.5 // Fallback to substrate height
     }
@@ -753,7 +747,6 @@ export class Terrarium {
                    tx * tz * h11
 
     return height
-    */
   }
 
   /**

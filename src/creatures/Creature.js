@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { EventEmitter } from '../core/EventEmitter.js'
+import { LocomotionProfile } from '../locomotion/LocomotionProfile.js'
 
 /**
  * Base class for all creatures in the terrarium
@@ -57,6 +58,11 @@ export class Creature extends EventEmitter {
 
     // Reference to terrarium (set by CreatureManager)
     this.terrarium = null
+
+    // Locomotion system
+    this.locomotionProfile = new LocomotionProfile(speciesData)
+    this.currentMovementPlan = null
+    this.currentSegmentIndex = 0
   }
 
   /**
@@ -252,6 +258,81 @@ export class Creature extends EventEmitter {
   getTerrainHeightOffset() {
     // Default: small offset based on creature size
     return this.size * 0.2
+  }
+
+  /**
+   * Execute a movement plan with physics-based locomotion
+   * @param {number} deltaTime - Time since last frame
+   * @returns {boolean} - True if plan is complete
+   */
+  executeMovementPlan(deltaTime) {
+    if (!this.currentMovementPlan || this.currentMovementPlan.type === 'blocked') {
+      return false
+    }
+
+    const segments = this.currentMovementPlan.segments
+    if (this.currentSegmentIndex >= segments.length) {
+      // Plan complete
+      this.currentMovementPlan = null
+      this.currentSegmentIndex = 0
+      this.isMoving = false
+      return true
+    }
+
+    const segment = segments[this.currentSegmentIndex]
+
+    // Move along current segment
+    const direction = new THREE.Vector3().subVectors(segment.to, this.position)
+    const distance = direction.length()
+
+    if (distance < 0.05) {
+      // Reached segment end, move to next
+      this.currentSegmentIndex++
+      return false
+    }
+
+    direction.normalize()
+
+    // Calculate speed based on segment properties
+    const baseSpeed = this.speciesData.behavior.movement_speed_normal
+    const effectiveSpeed = baseSpeed * segment.speedMultiplier * this.personality.activity
+    const moveDistance = effectiveSpeed * deltaTime * 60
+
+    const actualMove = Math.min(moveDistance, distance)
+
+    // Different movement types have different animations/physics
+    switch (segment.movementType) {
+      case 'walk':
+      case 'scramble':
+        this.position.addScaledVector(direction, actualMove)
+        break
+
+      case 'climb':
+      case 'vertical_climb':
+        // Climbing moves along surface normal
+        this.position.addScaledVector(direction, actualMove)
+        break
+
+      case 'jump':
+        // Parabolic trajectory - simplified for now
+        this.position.addScaledVector(direction, actualMove)
+        break
+    }
+
+    // Update rotation to face movement direction
+    if (direction.x !== 0 || direction.z !== 0) {
+      this.rotation.y = Math.atan2(direction.x, direction.z)
+    }
+
+    // For climbing, also adjust pitch
+    if (segment.movementType === 'climb' || segment.movementType === 'vertical_climb') {
+      const pitch = Math.atan2(direction.y, Math.sqrt(direction.x ** 2 + direction.z ** 2))
+      this.rotation.x = -pitch
+    } else {
+      this.rotation.x = 0
+    }
+
+    return false
   }
 
   /**

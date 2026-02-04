@@ -4,6 +4,7 @@ import SpeciesLoader from '../data/SpeciesLoader.js'
 import { Isopod } from './Isopod.js'
 import { Springtail } from './Springtail.js'
 import { DartFrog } from './DartFrog.js'
+import { SurfaceAnalyzer, MovementPlanner } from '../locomotion/index.js'
 
 /**
  * Manages all creatures in the terrarium
@@ -38,6 +39,21 @@ export class CreatureManager extends EventEmitter {
       powder_blue_isopod: Isopod,
       springtails: Springtail,
       dendrobates_auratus: DartFrog
+    }
+
+    // Locomotion system - initialized after terrarium is ready
+    this.surfaceAnalyzer = null
+    this.movementPlanner = null
+    this.initLocomotionSystem()
+  }
+
+  /**
+   * Initialize the locomotion system for advanced creature movement
+   */
+  initLocomotionSystem() {
+    if (this.terrarium) {
+      this.surfaceAnalyzer = new SurfaceAnalyzer(this.terrarium)
+      this.movementPlanner = new MovementPlanner(this.surfaceAnalyzer)
     }
   }
 
@@ -281,6 +297,27 @@ export class CreatureManager extends EventEmitter {
     return this.creatures.filter(c =>
       c.isAlive && preyIds.includes(c.speciesId)
     )
+  }
+
+  /**
+   * Plan a movement path for a creature using the locomotion system
+   * @param {Creature} creature - The creature to plan movement for
+   * @param {THREE.Vector3} target - The target position
+   * @returns {Object|null} - Movement plan or null if planner not ready
+   */
+  planCreatureMovement(creature, target) {
+    if (!this.movementPlanner) {
+      return null
+    }
+    return this.movementPlanner.planMovement(creature, target, creature.locomotionProfile)
+  }
+
+  /**
+   * Get the surface analyzer for terrain queries
+   * @returns {SurfaceAnalyzer|null}
+   */
+  getSurfaceAnalyzer() {
+    return this.surfaceAnalyzer
   }
 
   /**
