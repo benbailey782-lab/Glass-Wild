@@ -2,9 +2,13 @@ import { gameState } from '../core/GameState.js'
 import { uiManager } from './UIManager.js'
 import { PauseMenu } from './PauseMenu.js'
 import { SettingsModal } from './SettingsModal.js'
+import { CreaturesPanel } from './CreaturesPanel.js'
+import { ActionsPanel } from './ActionsPanel.js'
+import { ViewPanel } from './ViewPanel.js'
 
 /**
  * Game HUD - In-game heads-up display
+ * Redesigned with category buttons and slide-out panels
  */
 export class GameHUD {
   constructor() {
@@ -12,8 +16,15 @@ export class GameHUD {
     this.pauseMenu = null
     this.fpsCounter = null
 
-    // Reference to creature manager (set via setCreatureManager)
+    // Reference to creature manager
     this.creatureManager = null
+
+    // Panel instances
+    this.creaturesPanel = null
+    this.actionsPanel = null
+    this.viewPanel = null
+    this.activePanel = null
+    this.activePanelType = null
 
     // References to dynamic elements
     this.dayDisplay = null
@@ -26,14 +37,9 @@ export class GameHUD {
     this.bindEvents()
   }
 
-  /**
-   * Set the creature manager reference
-   * @param {CreatureManager} creatureManager
-   */
   setCreatureManager(creatureManager) {
     this.creatureManager = creatureManager
 
-    // Listen for creature events
     if (this.creatureManager) {
       this.creatureManager.on('creatureAdded', () => this.updatePopulationDisplay())
       this.creatureManager.on('creatureRemoved', () => this.updatePopulationDisplay())
@@ -43,9 +49,6 @@ export class GameHUD {
     }
   }
 
-  /**
-   * Create the HUD DOM
-   */
   create() {
     this.element = document.createElement('div')
     this.element.className = 'game-hud'
@@ -56,56 +59,60 @@ export class GameHUD {
       <!-- Top Bar -->
       <div class="hud-top-bar">
         <div class="hud-top-left">
-          <button class="btn-icon menu-btn" title="Menu (ESC)">☰</button>
+          <button class="btn-icon menu-btn" title="Menu (ESC)">&#x2630;</button>
           <span class="hud-title">The Glass Wild</span>
           <div class="hud-stats">
             <div class="hud-stat">
-              <span class="hud-stat-icon">📅</span>
+              <span class="hud-stat-icon">&#x1F4C5;</span>
               <span class="hud-stat-value day-display">Day ${tank.gameDay || 1}</span>
             </div>
             <div class="hud-stat">
-              <span class="hud-stat-icon">🌡️</span>
-              <span class="hud-stat-value temp-display">${tank.environment?.temperature || 75}°F</span>
+              <span class="hud-stat-icon">&#x1F321;</span>
+              <span class="hud-stat-value temp-display">${tank.environment?.temperature || 75}&deg;F</span>
             </div>
             <div class="hud-stat">
-              <span class="hud-stat-icon">💧</span>
+              <span class="hud-stat-icon">&#x1F4A7;</span>
               <span class="hud-stat-value humidity-display">${tank.environment?.humidity || 80}%</span>
             </div>
           </div>
         </div>
         <div class="hud-top-right">
-          <button class="btn-icon settings-btn" title="Settings">⚙️</button>
+          <button class="btn-icon settings-btn" title="Settings">&#x2699;</button>
         </div>
       </div>
 
-      <!-- Right Sidebar -->
-      <div class="hud-right-sidebar">
-        <button class="sidebar-btn tasks-btn" title="Tasks (Coming Soon)" disabled>📋</button>
-        <button class="sidebar-btn build-btn" title="Build Mode (Coming Soon)" disabled>🔨</button>
-        <button class="sidebar-btn creatures-btn" title="Creatures (Coming Soon)" disabled>🦎</button>
-      </div>
-
-      <!-- Bottom Bar -->
+      <!-- Bottom Bar - Redesigned -->
       <div class="hud-bottom-bar">
         <div class="hud-bottom-left">
           <div class="time-controls">
-            <button class="time-btn" data-speed="0" title="Pause">⏸</button>
-            <button class="time-btn active" data-speed="1" title="Normal Speed">▶</button>
-            <button class="time-btn" data-speed="2" title="Fast">▶▶</button>
-            <button class="time-btn" data-speed="5" title="Faster">▶▶▶</button>
-          </div>
-          <div class="quick-actions">
-            <button class="action-btn mist-btn">💧 Mist</button>
-            <button class="action-btn feed-btn">🍖 Feed</button>
-            <button class="action-btn add-isopod-btn">🐛 Add Isopod</button>
-            <button class="action-btn add-springtail-btn">🦗 Springtail</button>
-            <button class="action-btn add-frog-btn">🐸 Dart Frog</button>
-            <button class="action-btn glass-btn">👁️ Glass</button>
+            <button class="time-btn" data-speed="0" title="Pause">&#x23F8;</button>
+            <button class="time-btn active" data-speed="1" title="Normal Speed">&#x25B6;</button>
+            <button class="time-btn" data-speed="2" title="Fast">&#x25B6;&#x25B6;</button>
+            <button class="time-btn" data-speed="5" title="Faster">&#x25B6;&#x25B6;&#x25B6;</button>
           </div>
         </div>
+
+        <div class="hud-bottom-center">
+          <div class="category-buttons">
+            <button class="category-btn" data-panel="creatures" title="Creatures">
+              <span class="category-btn-icon">&#x1F98E;</span>
+            </button>
+            <button class="category-btn" data-panel="actions" title="Actions">
+              <span class="category-btn-icon">&#x26A1;</span>
+            </button>
+            <button class="category-btn disabled" data-panel="build" title="Build (Coming Soon)" disabled>
+              <span class="category-btn-icon">&#x1F528;</span>
+            </button>
+            <button class="category-btn" data-panel="view" title="View Options">
+              <span class="category-btn-icon">&#x1F441;</span>
+            </button>
+          </div>
+        </div>
+
         <div class="hud-bottom-right">
           <div class="population-display">
-            Population: <span class="population-count">0</span>
+            <span class="population-icon">&#x1F43E;</span>
+            <span class="population-count">0</span>
           </div>
         </div>
       </div>
@@ -118,35 +125,25 @@ export class GameHUD {
     this.populationDisplay = this.element.querySelector('.population-count')
     this.timeButtons = this.element.querySelectorAll('.time-btn')
 
-    // Create FPS counter (hidden by default)
+    // Create FPS counter
     this.createFpsCounter()
   }
 
-  /**
-   * Create FPS counter element
-   */
   createFpsCounter() {
     this.fpsCounter = document.createElement('div')
     this.fpsCounter.className = 'fps-counter'
     this.fpsCounter.style.display = 'none'
     this.fpsCounter.textContent = 'FPS: --'
     document.body.appendChild(this.fpsCounter)
-
-    // Update visibility based on settings
     this.updateFpsVisibility()
   }
 
-  /**
-   * Bind event handlers
-   */
   bindEvents() {
     // Menu button
-    const menuBtn = this.element.querySelector('.menu-btn')
-    menuBtn.addEventListener('click', () => this.showPauseMenu())
+    this.element.querySelector('.menu-btn').addEventListener('click', () => this.showPauseMenu())
 
     // Settings button
-    const settingsBtn = this.element.querySelector('.settings-btn')
-    settingsBtn.addEventListener('click', () => {
+    this.element.querySelector('.settings-btn').addEventListener('click', () => {
       const modal = new SettingsModal()
       uiManager.showModal(modal)
     })
@@ -159,29 +156,23 @@ export class GameHUD {
       })
     })
 
-    // Quick action buttons
-    const mistBtn = this.element.querySelector('.mist-btn')
-    mistBtn.addEventListener('click', () => this.handleMist())
+    // Category buttons
+    this.element.querySelectorAll('.category-btn[data-panel]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const panelType = btn.dataset.panel
+        if (!btn.disabled) {
+          this.togglePanel(panelType, btn)
+        }
+      })
+    })
 
-    const feedBtn = this.element.querySelector('.feed-btn')
-    feedBtn.addEventListener('click', () => this.handleFeed())
-
-    const addIsopodBtn = this.element.querySelector('.add-isopod-btn')
-    addIsopodBtn.addEventListener('click', () => this.handleAddIsopod())
-
-    const addSpringtailBtn = this.element.querySelector('.add-springtail-btn')
-    addSpringtailBtn.addEventListener('click', () => this.handleAddSpringtail())
-
-    const addFrogBtn = this.element.querySelector('.add-frog-btn')
-    addFrogBtn.addEventListener('click', () => this.handleAddFrog())
-
-    const glassBtn = this.element.querySelector('.glass-btn')
-    glassBtn.addEventListener('click', () => this.handleToggleGlass())
-
-    // ESC key to pause
+    // ESC key handler
     this.escHandler = (e) => {
       if (e.key === 'Escape' && gameState.currentScreen === 'game') {
-        if (uiManager.hasOpenModals()) {
+        if (this.activePanel) {
+          this.closeActivePanel()
+        } else if (uiManager.hasOpenModals()) {
           uiManager.closeAllModals()
         } else if (this.pauseMenu?.isVisible) {
           this.pauseMenu.hide()
@@ -192,7 +183,7 @@ export class GameHUD {
     }
     document.addEventListener('keydown', this.escHandler)
 
-    // Listen for game state changes
+    // Game state listeners
     gameState.on('timeScaleChanged', (scale) => this.updateTimeButtons(scale))
     gameState.on('settingChanged', ({ category, key }) => {
       if (category === 'graphics' && key === 'showFps') {
@@ -202,19 +193,75 @@ export class GameHUD {
     gameState.on('tankUpdated', () => this.updateDisplays())
   }
 
-  /**
-   * Set time scale and update buttons
-   * @param {number} scale
-   */
+  togglePanel(panelType, btn) {
+    // If clicking the same panel that's open, close it
+    if (this.activePanel && this.activePanelType === panelType) {
+      this.closeActivePanel()
+      return
+    }
+
+    // Close any open panel first
+    if (this.activePanel) {
+      this.closeActivePanel()
+    }
+
+    // Open the requested panel
+    let panel
+    switch (panelType) {
+      case 'creatures':
+        if (!this.creaturesPanel) {
+          this.creaturesPanel = new CreaturesPanel(this.creatureManager)
+        }
+        panel = this.creaturesPanel
+        break
+      case 'actions':
+        if (!this.actionsPanel) {
+          this.actionsPanel = new ActionsPanel()
+        }
+        panel = this.actionsPanel
+        break
+      case 'view':
+        if (!this.viewPanel) {
+          this.viewPanel = new ViewPanel()
+        }
+        panel = this.viewPanel
+        break
+    }
+
+    if (panel) {
+      panel.open()
+      panel.onClose = () => {
+        this.activePanel = null
+        this.activePanelType = null
+        this.updateCategoryButtons()
+      }
+      this.activePanel = panel
+      this.activePanelType = panelType
+      this.updateCategoryButtons()
+    }
+  }
+
+  closeActivePanel() {
+    if (this.activePanel) {
+      this.activePanel.close()
+      this.activePanel = null
+      this.activePanelType = null
+      this.updateCategoryButtons()
+    }
+  }
+
+  updateCategoryButtons() {
+    this.element.querySelectorAll('.category-btn').forEach(btn => {
+      const isActive = btn.dataset.panel === this.activePanelType
+      btn.classList.toggle('active', isActive)
+    })
+  }
+
   setTimeScale(scale) {
     gameState.setTimeScale(scale)
     this.updateTimeButtons(scale)
   }
 
-  /**
-   * Update time control buttons
-   * @param {number} activeScale
-   */
   updateTimeButtons(activeScale) {
     this.timeButtons.forEach(btn => {
       const speed = parseInt(btn.dataset.speed)
@@ -222,112 +269,12 @@ export class GameHUD {
     })
   }
 
-  /**
-   * Handle mist action
-   */
-  handleMist() {
-    uiManager.notify('Misting the terrarium...', 'info', 2000)
-    // TODO: Implement actual misting effect
-    if (gameState.currentTank) {
-      const currentHumidity = gameState.currentTank.environment.humidity
-      gameState.updateCurrentTank({
-        environment: {
-          ...gameState.currentTank.environment,
-          humidity: Math.min(100, currentHumidity + 5)
-        }
-      })
-      this.updateDisplays()
-    }
-  }
-
-  /**
-   * Handle feed action
-   */
-  handleFeed() {
-    uiManager.notify('Feeding time!', 'info', 2000)
-    // TODO: Implement actual feeding
-  }
-
-  /**
-   * Handle adding an isopod
-   */
-  async handleAddIsopod() {
-    if (!this.creatureManager) {
-      uiManager.notify('Creature system not initialized', 'warning', 2000)
-      return
-    }
-
-    const creature = await this.creatureManager.addCreature('powder_blue_isopod')
-    if (creature) {
-      uiManager.notify('Added a Powder Blue Isopod!', 'success', 2000)
-    } else {
-      uiManager.notify('Failed to add isopod', 'warning', 2000)
-    }
-  }
-
-  /**
-   * Handle adding springtails
-   */
-  async handleAddSpringtail() {
-    if (!this.creatureManager) {
-      uiManager.notify('Creature system not initialized', 'warning', 2000)
-      return
-    }
-
-    // Add 10 springtails at once (they're colony creatures)
-    let added = 0
-    for (let i = 0; i < 10; i++) {
-      const creature = await this.creatureManager.addCreature('springtails')
-      if (creature) added++
-    }
-
-    if (added > 0) {
-      uiManager.notify(`Added ${added} Springtails!`, 'success', 2000)
-    } else {
-      uiManager.notify('Failed to add springtails', 'warning', 2000)
-    }
-  }
-
-  /**
-   * Handle adding a dart frog
-   */
-  async handleAddFrog() {
-    if (!this.creatureManager) {
-      uiManager.notify('Creature system not initialized', 'warning', 2000)
-      return
-    }
-
-    const creature = await this.creatureManager.addCreature('dendrobates_auratus')
-    if (creature) {
-      uiManager.notify('Added a Green and Black Dart Frog!', 'success', 2000)
-    } else {
-      uiManager.notify('Failed to add dart frog', 'warning', 2000)
-    }
-  }
-
-  /**
-   * Handle glass visibility toggle
-   */
-  handleToggleGlass() {
-    if (window.terrarium) {
-      window.terrarium.toggleGlassVisibility()
-      const isVisible = window.terrarium.glassVisible
-      uiManager.notify(isVisible ? 'Glass visible' : 'Glass hidden', 'info', 1500)
-    }
-  }
-
-  /**
-   * Update population display from creature manager
-   */
   updatePopulationDisplay() {
     if (this.creatureManager) {
       this.populationDisplay.textContent = this.creatureManager.getPopulation()
     }
   }
 
-  /**
-   * Show pause menu
-   */
   showPauseMenu() {
     if (!this.pauseMenu) {
       this.pauseMenu = new PauseMenu()
@@ -336,18 +283,14 @@ export class GameHUD {
     gameState.pause()
   }
 
-  /**
-   * Update HUD displays
-   */
   updateDisplays() {
     const tank = gameState.currentTank
     if (!tank) return
 
     this.dayDisplay.textContent = `Day ${tank.gameDay}`
-    this.tempDisplay.textContent = `${tank.environment.temperature}°F`
+    this.tempDisplay.textContent = `${tank.environment.temperature}\u00B0F`
     this.humidityDisplay.textContent = `${tank.environment.humidity}%`
 
-    // Use creature manager for accurate population count
     if (this.creatureManager) {
       this.populationDisplay.textContent = this.creatureManager.getPopulation()
     } else {
@@ -355,27 +298,17 @@ export class GameHUD {
     }
   }
 
-  /**
-   * Update FPS counter visibility
-   */
   updateFpsVisibility() {
     const show = gameState.getSetting('graphics', 'showFps')
     this.fpsCounter.style.display = show ? 'block' : 'none'
   }
 
-  /**
-   * Update FPS display
-   * @param {number} fps
-   */
   updateFps(fps) {
     if (this.fpsCounter && gameState.getSetting('graphics', 'showFps')) {
       this.fpsCounter.textContent = `FPS: ${Math.round(fps)}`
     }
   }
 
-  /**
-   * Show the HUD
-   */
   show() {
     const uiRoot = document.getElementById('ui-root')
     if (uiRoot && !this.element.parentNode) {
@@ -385,25 +318,21 @@ export class GameHUD {
     this.updateDisplays()
   }
 
-  /**
-   * Hide the HUD
-   */
   hide() {
+    this.closeActivePanel()
     this.element.classList.remove('visible')
     if (this.element.parentNode) {
       this.element.parentNode.removeChild(this.element)
     }
   }
 
-  /**
-   * Destroy the HUD
-   */
   destroy() {
+    this.closeActivePanel()
     document.removeEventListener('keydown', this.escHandler)
-    if (this.fpsCounter && this.fpsCounter.parentNode) {
+    if (this.fpsCounter?.parentNode) {
       this.fpsCounter.parentNode.removeChild(this.fpsCounter)
     }
-    if (this.element.parentNode) {
+    if (this.element?.parentNode) {
       this.element.parentNode.removeChild(this.element)
     }
     this.element = null

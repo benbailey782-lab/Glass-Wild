@@ -59,11 +59,13 @@ export class Terrarium {
     })
 
     // Frame material - dark metal edges with slight sheen
-    const frameMaterial = new THREE.MeshStandardMaterial({
+    this.frameMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a1a1a,
       metalness: 0.85,
       roughness: 0.25,
-      envMapIntensity: 0.8
+      envMapIntensity: 0.8,
+      transparent: true,
+      opacity: 1
     })
 
     // Wall panels (4 sides - front, back, left, right)
@@ -88,7 +90,8 @@ export class Terrarium {
 
     // Floor panel (separate from walls for toggle)
     const floorGeo = new THREE.BoxGeometry(size, glassThickness, size)
-    const floorMesh = new THREE.Mesh(floorGeo, this.glassMaterial.clone())
+    this.floorGlassMaterial = this.glassMaterial.clone()
+    const floorMesh = new THREE.Mesh(floorGeo, this.floorGlassMaterial)
     floorMesh.position.set(0, 0, 0)
     floorMesh.receiveShadow = true
     floorMesh.name = 'floor'
@@ -120,7 +123,7 @@ export class Terrarium {
         edge.height + (isVertical ? 0 : frameThickness),
         frameThickness
       )
-      const mesh = new THREE.Mesh(geo, frameMaterial)
+      const mesh = new THREE.Mesh(geo, this.frameMaterial)
       mesh.position.set(...edge.pos)
       mesh.rotation.set(...edge.rot)
       mesh.castShadow = true
@@ -530,18 +533,28 @@ export class Terrarium {
         this.glassOpacity += diff * speed * deltaTime
       }
 
-      // Update material transmission based on opacity
+      // Update wall glass material
       if (this.glassMaterial) {
         this.glassMaterial.transmission = 0.95 * this.glassOpacity
         this.glassMaterial.opacity = 0.15 * this.glassOpacity
-
-        // When fully hidden, disable the walls for performance
-        if (this.glassOpacity < 0.01) {
-          this.wallsGroup.visible = false
-        } else {
-          this.wallsGroup.visible = true
-        }
       }
+
+      // Update floor glass material
+      if (this.floorGlassMaterial) {
+        this.floorGlassMaterial.transmission = 0.95 * this.glassOpacity
+        this.floorGlassMaterial.opacity = 0.15 * this.glassOpacity
+      }
+
+      // Update frame material (fade to transparent)
+      if (this.frameMaterial) {
+        this.frameMaterial.opacity = this.glassOpacity
+      }
+
+      // Toggle visibility for all glass-related groups
+      const isVisible = this.glassOpacity >= 0.01
+      this.wallsGroup.visible = isVisible
+      this.floorGroup.visible = isVisible
+      this.frameGroup.visible = isVisible
     }
   }
 

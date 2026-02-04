@@ -136,14 +136,14 @@ export class CreatureManager extends EventEmitter {
       if (bounds) {
         return {
           x: bounds.min.x + Math.random() * (bounds.max.x - bounds.min.x),
-          y: 0.05, // Slightly above ground
+          y: bounds.min.y + 0.1, // Slightly above substrate
           z: bounds.min.z + Math.random() * (bounds.max.z - bounds.min.z)
         }
       }
     }
 
-    // Default position
-    return { x: (Math.random() - 0.5) * 2, y: 0.05, z: (Math.random() - 0.5) * 2 }
+    // Default position (substrate height is 2.5)
+    return { x: (Math.random() - 0.5) * 2, y: 2.6, z: (Math.random() - 0.5) * 2 }
   }
 
   /**
