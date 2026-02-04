@@ -15,6 +15,7 @@ export class ViewPanel extends SlidePanel {
     container.className = 'view-panel-content'
 
     const isGlassVisible = window.terrarium?.glassVisible ?? true
+    const isFoliageVisible = window.terrarium?.foliageVisible ?? true
 
     container.innerHTML = `
       <div class="view-section">
@@ -27,6 +28,16 @@ export class ViewPanel extends SlidePanel {
           </div>
           <button class="view-toggle ${isGlassVisible ? 'active' : ''}" data-option="glass">
             ${isGlassVisible ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
+        <div class="view-option">
+          <div class="view-option-info">
+            <span class="view-option-label">Foliage</span>
+            <span class="view-option-desc">Toggle terrain and plants (F)</span>
+          </div>
+          <button class="view-toggle ${isFoliageVisible ? 'active' : ''}" data-option="foliage">
+            ${isFoliageVisible ? 'ON' : 'OFF'}
           </button>
         </div>
       </div>
@@ -58,6 +69,12 @@ export class ViewPanel extends SlidePanel {
       this.toggleGlass(glassToggle)
     })
 
+    // Foliage toggle handler
+    const foliageToggle = container.querySelector('[data-option="foliage"]')
+    foliageToggle.addEventListener('click', () => {
+      this.toggleFoliage(foliageToggle)
+    })
+
     this.appendContent(container)
   }
 
@@ -68,6 +85,28 @@ export class ViewPanel extends SlidePanel {
       btn.textContent = isVisible ? 'ON' : 'OFF'
       btn.classList.toggle('active', isVisible)
       uiManager.notify(isVisible ? 'Glass visible' : 'Glass hidden', 'info', 1500)
+    }
+  }
+
+  toggleFoliage(btn) {
+    if (window.terrarium) {
+      window.terrarium.toggleFoliageVisibility()
+      const isVisible = window.terrarium.foliageVisible
+      btn.textContent = isVisible ? 'ON' : 'OFF'
+      btn.classList.toggle('active', isVisible)
+      uiManager.notify(isVisible ? 'Foliage visible' : 'Foliage hidden', 'info', 1500)
+    }
+  }
+
+  /**
+   * Update foliage toggle button state (called from keyboard shortcut)
+   */
+  updateFoliageToggle() {
+    const btn = this.element?.querySelector('[data-option="foliage"]')
+    if (btn && window.terrarium) {
+      const isVisible = window.terrarium.foliageVisible
+      btn.textContent = isVisible ? 'ON' : 'OFF'
+      btn.classList.toggle('active', isVisible)
     }
   }
 }

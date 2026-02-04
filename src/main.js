@@ -210,11 +210,20 @@ function applyQualitySettings(quality) {
 
 function setupKeyboardControls() {
   window.addEventListener('keydown', (event) => {
-    // Only handle H key for glass toggle when in game
+    // Only handle keyboard shortcuts when in game
     if (gameState.currentScreen !== 'game') return
 
     if (event.key === 'h' || event.key === 'H') {
       terrarium.toggleGlassVisibility()
+    }
+
+    if (event.key === 'f' || event.key === 'F') {
+      terrarium.toggleFoliageVisibility()
+      uiManager.notify(
+        terrarium.foliageVisible ? 'Foliage visible' : 'Foliage hidden',
+        'info',
+        1500
+      )
     }
   })
 }
@@ -414,6 +423,7 @@ if (import.meta.env?.DEV) {
 ║                                                              ║
 ║  CONTROLS:                                                   ║
 ║  • H key: Toggle glass walls                                 ║
+║  • F key: Toggle foliage visibility                          ║
 ║  • ESC: Pause menu                                           ║
 ║  • Mouse: Orbit camera                                       ║
 ║                                                              ║

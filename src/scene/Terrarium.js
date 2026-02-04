@@ -23,10 +23,24 @@ export class Terrarium {
     this.wallMeshes = []
     this.glassMaterial = null
 
+    // Foliage visibility state
+    this.foliageVisible = true
+
+    // Height map for terrain sampling (built after decorations are created)
+    this.heightMap = null
+    this.heightMapResolution = 40
+
+    // Raycaster for terrain height sampling
+    this.raycaster = new THREE.Raycaster()
+    this.rayDirection = new THREE.Vector3(0, -1, 0)
+
     this.createGlassEnclosure()
     this.createSubstrate()
     this.createDecorations()
     this.createMoisture()
+
+    // Build height map after all terrain is created
+    this.buildHeightMap()
   }
 
   createGlassEnclosure() {
@@ -637,5 +651,131 @@ export class Terrarium {
    */
   hasHidingSpots() {
     return this.getHidingSpots().length > 0
+  }
+
+  /**
+   * Build a height map grid for fast terrain height lookups
+   * Uses raycasting to sample terrain height at regular intervals
+   */
+  buildHeightMap() {
+    const resolution = this.heightMapResolution
+    const size = this.size
+    const step = size / resolution
+
+    this.heightMap = {
+      map: [],
+      resolution,
+      size,
+      step
+    }
+
+    // Collect walkable surfaces (terrain, not glass or creatures)
+    const walkableSurfaces = []
+    this.contentsGroup.traverse(obj => {
+      if (obj.isMesh) {
+        walkableSurfaces.push(obj)
+      }
+    })
+
+    // Sample heights on a grid
+    for (let i = 0; i <= resolution; i++) {
+      this.heightMap.map[i] = []
+      for (let j = 0; j <= resolution; j++) {
+        const x = -size / 2 + i * step
+        const z = -size / 2 + j * step
+        this.heightMap.map[i][j] = this.sampleTerrainHeightRaycast(x, z, walkableSurfaces)
+      }
+    }
+  }
+
+  /**
+   * Sample terrain height using raycasting (used for building height map)
+   * @param {number} x - World X position
+   * @param {number} z - World Z position
+   * @param {Array} surfaces - Array of mesh objects to test against
+   * @returns {number} - Height at the given position
+   */
+  sampleTerrainHeightRaycast(x, z, surfaces) {
+    const origin = new THREE.Vector3(x, 50, z) // Start high above
+    this.raycaster.set(origin, this.rayDirection)
+
+    const intersects = this.raycaster.intersectObjects(surfaces, false)
+
+    if (intersects.length > 0) {
+      return intersects[0].point.y
+    }
+
+    // Fallback to substrate height
+    return 2.5
+  }
+
+  /**
+   * Get terrain height at a given XZ position using bilinear interpolation
+   * This is the fast method that should be called every frame
+   * @param {number} x - World X position
+   * @param {number} z - World Z position
+   * @returns {number} - Interpolated height at the given position
+   */
+  getTerrainHeight(x, z) {
+    if (!this.heightMap) {
+      return 2.5 // Fallback to substrate height
+    }
+
+    const { map, resolution, size, step } = this.heightMap
+
+    // Convert world position to grid indices
+    const i = (x + size / 2) / step
+    const j = (z + size / 2) / step
+
+    // Clamp to valid range
+    const i0 = Math.floor(Math.max(0, Math.min(resolution - 1, i)))
+    const j0 = Math.floor(Math.max(0, Math.min(resolution - 1, j)))
+    const i1 = Math.min(i0 + 1, resolution)
+    const j1 = Math.min(j0 + 1, resolution)
+
+    // Interpolation factors
+    const tx = Math.max(0, Math.min(1, i - i0))
+    const tz = Math.max(0, Math.min(1, j - j0))
+
+    // Bilinear interpolation
+    const h00 = map[i0][j0]
+    const h10 = map[i1][j0]
+    const h01 = map[i0][j1]
+    const h11 = map[i1][j1]
+
+    const height = (1 - tx) * (1 - tz) * h00 +
+                   tx * (1 - tz) * h10 +
+                   (1 - tx) * tz * h01 +
+                   tx * tz * h11
+
+    return height
+  }
+
+  /**
+   * Toggle foliage visibility (terrain decorations except creatures)
+   */
+  toggleFoliageVisibility() {
+    this.foliageVisible = !this.foliageVisible
+    this.setFoliageVisibility(this.foliageVisible)
+  }
+
+  /**
+   * Set foliage visibility explicitly
+   * @param {boolean} visible - Whether foliage should be visible
+   */
+  setFoliageVisibility(visible) {
+    this.foliageVisible = visible
+
+    // Toggle visibility of all contents except the creatures group
+    this.contentsGroup.children.forEach(child => {
+      // Skip if it's the creatures group (we want creatures to remain visible)
+      if (child.name === 'creatures') return
+
+      // Skip if it's a creature mesh
+      if (child.userData?.creature) return
+
+      // Hide/show everything else (terrain, plants, rocks, etc.)
+      child.visible = visible
+    })
   }
 }

@@ -108,6 +108,11 @@ export class Creature extends EventEmitter {
     this.updateMovement(deltaTime)
     this.updateBehavior(deltaTime, environment)
 
+    // Update terrain height even when not moving (for idle creatures)
+    if (!this.isMoving) {
+      this.updateTerrainHeight()
+    }
+
     // Sync mesh position
     if (this.mesh) {
       this.mesh.position.copy(this.position)
@@ -193,7 +198,9 @@ export class Creature extends EventEmitter {
     const direction = new THREE.Vector3()
       .subVectors(this.targetPosition, this.position)
 
-    const distance = direction.length()
+    // Use XZ distance for 2D pathfinding (ignore Y difference)
+    const xzDirection = new THREE.Vector2(direction.x, direction.z)
+    const distance = xzDirection.length()
 
     // Reached target
     if (distance < 0.05) {
@@ -202,8 +209,8 @@ export class Creature extends EventEmitter {
       return
     }
 
-    // Move toward target
-    direction.normalize()
+    // Move toward target (XZ plane only)
+    xzDirection.normalize()
     const speed = this.speciesData.behavior.movement_speed_normal * this.personality.activity
     // Convert speed from inches/second to world units
     // Assuming 1 world unit = 1 inch for simplicity
@@ -211,12 +218,40 @@ export class Creature extends EventEmitter {
 
     // Don't overshoot
     const actualMove = Math.min(moveDistance, distance)
-    this.position.add(direction.multiplyScalar(actualMove))
+    this.position.x += xzDirection.x * actualMove
+    this.position.z += xzDirection.y * actualMove
+
+    // Sample terrain height at new position and update Y
+    this.updateTerrainHeight()
 
     // Update rotation to face movement direction
-    if (direction.x !== 0 || direction.z !== 0) {
-      this.rotation.y = Math.atan2(direction.x, direction.z)
+    if (xzDirection.x !== 0 || xzDirection.y !== 0) {
+      this.rotation.y = Math.atan2(xzDirection.x, xzDirection.y)
     }
+  }
+
+  /**
+   * Update creature Y position to match terrain height
+   */
+  updateTerrainHeight() {
+    if (!this.terrarium || !this.terrarium.getTerrainHeight) return
+
+    const terrainY = this.terrarium.getTerrainHeight(this.position.x, this.position.z)
+
+    // Get creature height offset (half the creature size for ground creatures)
+    const heightOffset = this.getTerrainHeightOffset()
+
+    this.position.y = terrainY + heightOffset
+  }
+
+  /**
+   * Get the height offset for terrain placement
+   * Override in subclasses for creatures with different body shapes
+   * @returns {number} - Height offset above terrain
+   */
+  getTerrainHeightOffset() {
+    // Default: small offset based on creature size
+    return this.size * 0.2
   }
 
   /**

@@ -39,6 +39,24 @@ export class DartFrog extends Creature {
     this.mesh.position.copy(this.position)
     this.mesh.rotation.copy(this.rotation)
     this.mesh.userData.creature = this
+
+    // Scale multiplier to make frogs visible in the terrarium
+    // Base model is ~0.5 units wide, we want ~1.5-2.0 units for visibility
+    this.meshScaleMultiplier = 3.5
+    this.mesh.scale.setScalar(this.meshScaleMultiplier)
+  }
+
+  /**
+   * Override ageBy to apply custom scale multiplier
+   */
+  ageBy(days) {
+    super.ageBy(days)
+
+    // Re-apply scale with multiplier after base class sets scale
+    if (this.mesh && this.meshScaleMultiplier) {
+      const baseScale = this.size / this.speciesData.physical.size_adult_inches
+      this.mesh.scale.setScalar(baseScale * this.meshScaleMultiplier)
+    }
   }
 
   update(deltaTime, environment) {
@@ -122,16 +140,22 @@ export class DartFrog extends Creature {
       case 'stalking':
         // Move slowly toward prey
         if (dist > strikeRange) {
-          // Stalk closer
+          // Stalk closer (XZ plane only)
           const direction = new THREE.Vector3()
             .subVectors(this.currentPrey.position, this.position)
-            .normalize()
+          direction.y = 0 // Ignore vertical difference
+          direction.normalize()
 
           // Move at slow speed
           const stalkSpeed = this.speciesData.behavior.movement_speed_slow
           const moveAmount = stalkSpeed * deltaTime * 30 // Slow movement
 
-          this.position.add(direction.multiplyScalar(moveAmount))
+          this.position.x += direction.x * moveAmount
+          this.position.z += direction.z * moveAmount
+
+          // Update Y position to match terrain
+          this.updateTerrainHeight()
+
           this.lookAt(this.currentPrey.position)
 
           // Update stalk timer - don't stalk forever

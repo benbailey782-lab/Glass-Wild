@@ -122,13 +122,19 @@ export class Springtail extends Creature {
 
     this.lastJumpTime = now
 
-    // Jump adds instant displacement
+    // Jump adds instant displacement (XZ only)
     if (this.fleeTarget) {
       const jumpDist = 0.5 + Math.random() * 0.5 // 0.5-1 inch instant
       const direction = new THREE.Vector3()
         .subVectors(this.fleeTarget, this.position)
-        .normalize()
-      this.position.add(direction.multiplyScalar(jumpDist))
+      direction.y = 0 // Keep jump on XZ plane
+      direction.normalize()
+
+      this.position.x += direction.x * jumpDist
+      this.position.z += direction.z * jumpDist
+
+      // Update Y position to match terrain after jump
+      this.updateTerrainHeight()
     }
   }
 
@@ -201,7 +207,9 @@ export class Springtail extends Creature {
     const direction = new THREE.Vector3()
       .subVectors(this.targetPosition, this.position)
 
-    const distance = direction.length()
+    // Use XZ distance for 2D pathfinding
+    const xzDirection = new THREE.Vector2(direction.x, direction.z)
+    const distance = xzDirection.length()
 
     if (distance < 0.02) {
       this.targetPosition = null
@@ -209,7 +217,7 @@ export class Springtail extends Creature {
       return
     }
 
-    direction.normalize()
+    xzDirection.normalize()
 
     // Use faster speed when fleeing
     let speed = this.speciesData.behavior.movement_speed_normal
@@ -219,10 +227,14 @@ export class Springtail extends Creature {
 
     const moveDistance = speed * deltaTime * 60
     const actualMove = Math.min(moveDistance, distance)
-    this.position.add(direction.multiplyScalar(actualMove))
+    this.position.x += xzDirection.x * actualMove
+    this.position.z += xzDirection.y * actualMove
 
-    if (direction.x !== 0 || direction.z !== 0) {
-      this.rotation.y = Math.atan2(direction.x, direction.z)
+    // Update Y position to match terrain
+    this.updateTerrainHeight()
+
+    if (xzDirection.x !== 0 || xzDirection.y !== 0) {
+      this.rotation.y = Math.atan2(xzDirection.x, xzDirection.y)
     }
   }
 
