@@ -21,28 +21,7 @@ export class Environment {
   }
 
   createVolumetricFog() {
-    const size = this.size
-    const fogLayers = 4
-
-    // Subtle fog planes at different heights
-    const fogMaterial = new THREE.MeshBasicMaterial({
-      color: 0xd0e8d0,
-      transparent: true,
-      opacity: 0.015,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    })
-
-    for (let i = 0; i < fogLayers; i++) {
-      const height = 3 + (i / fogLayers) * (size * 0.6)
-      const fogGeo = new THREE.PlaneGeometry(size - 2, size - 2)
-      const fog = new THREE.Mesh(fogGeo, fogMaterial.clone())
-      fog.rotation.x = -Math.PI / 2
-      fog.position.y = height
-      fog.material.opacity = 0.012 + (i / fogLayers) * 0.008
-      fog.renderOrder = 1000 + i
-      this.scene.add(fog)
-    }
+    // Disabled - using scene fog only
   }
 
   createDustParticles() {
