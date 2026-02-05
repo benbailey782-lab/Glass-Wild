@@ -478,14 +478,17 @@ export class Creature extends EventEmitter {
       if (this.mesh.parent) {
         this.mesh.parent.remove(this.mesh)
       }
-      // Dispose geometry and materials
+      // Dispose geometry, textures, and materials
       this.mesh.traverse((child) => {
         if (child.geometry) child.geometry.dispose()
         if (child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => m.dispose())
-          } else {
-            child.material.dispose()
+          const materials = Array.isArray(child.material) ? child.material : [child.material]
+          for (const mat of materials) {
+            if (mat.map) mat.map.dispose()
+            if (mat.normalMap) mat.normalMap.dispose()
+            if (mat.roughnessMap) mat.roughnessMap.dispose()
+            if (mat.metalnessMap) mat.metalnessMap.dispose()
+            mat.dispose()
           }
         }
       })

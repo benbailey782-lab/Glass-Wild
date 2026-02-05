@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { Creature } from './Creature.js'
-import { createDartFrogMesh, updateDartFrogAnimation } from './models/DartFrogModel.js'
+import { updateDartFrogAnimation } from './models/DartFrogModel.js'
+import { modelLoader } from './models/ModelLoader.js'
 
 /**
  * Dart Frog class - predator that hunts springtails
@@ -23,27 +24,83 @@ export class DartFrog extends Creature {
     this.isCalling = false
     this.callTimer = 0
 
-    // Create the visual mesh
-    this.createMesh()
+    // Model loading state
+    this.modelLoaded = false
+
+    // Create placeholder mesh immediately, then load GLB async
+    this.createPlaceholderMesh()
+    this.loadGLBModel()
   }
 
-  createMesh() {
-    const sizeRatio = this.size / this.speciesData.physical.size_adult_inches
-    // Default to green/black morph
-    const colors = {
-      primary: 0x2d5a27,  // Green
-      secondary: 0x1a1a1a // Black
-    }
-
-    this.mesh = createDartFrogMesh(sizeRatio, colors)
+  createPlaceholderMesh() {
+    // Simple green sphere as placeholder while GLB loads
+    const geo = new THREE.SphereGeometry(0.3, 8, 6)
+    geo.scale(1, 0.6, 1.3)
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x2d5a27, roughness: 0.7, metalness: 0.1
+    })
+    this.mesh = new THREE.Mesh(geo, mat)
+    this.mesh.castShadow = true
+    this.mesh.receiveShadow = true
     this.mesh.position.copy(this.position)
     this.mesh.rotation.copy(this.rotation)
     this.mesh.userData.creature = this
 
-    // Scale multiplier to make frogs visible in the terrarium
-    // Base model is ~0.5 units wide, we want ~1.5-2.0 units for visibility
+    // Scale placeholder to approximate frog size
     this.meshScaleMultiplier = 3.5
     this.mesh.scale.setScalar(this.meshScaleMultiplier)
+  }
+
+  async loadGLBModel() {
+    try {
+      const model = await modelLoader.load(
+        'dendrobates_auratus',
+        '/models/creatures/Meshy_AI_Poison_Dart_Frog_Maje_0205052732_texture.glb'
+      )
+
+      if (!this.isAlive) return // Creature died while loading
+
+      // Remember parent so we can re-attach
+      const parent = this.mesh?.parent
+
+      // Dispose placeholder
+      if (this.mesh) {
+        if (this.mesh.parent) this.mesh.parent.remove(this.mesh)
+        if (this.mesh.geometry) this.mesh.geometry.dispose()
+        if (this.mesh.material) this.mesh.material.dispose()
+      }
+
+      // Use the GLB model
+      this.mesh = model
+      this.mesh.position.copy(this.position)
+      this.mesh.rotation.copy(this.rotation)
+      this.mesh.userData.creature = this
+
+      // SCALE CALCULATION:
+      // The GLB bounding box is 2.0 units long (Z axis).
+      // A real D. auratus is ~1.5 inches.
+      // In our game, 1 unit = 1 inch.
+      // So we need the model to be ~1.5 units long.
+      // Scale factor = 1.5 / 2.0 = 0.75
+      // Then apply the visibility multiplier (3.5) on top.
+      const glbLength = 2.0 // Z-axis extent from Meshy
+      const targetInches = this.speciesData.physical.size_adult_inches // 1.5
+      const baseScale = targetInches / glbLength
+      this.meshScaleMultiplier = 3.5
+      this.mesh.scale.setScalar(baseScale * this.meshScaleMultiplier)
+
+      // Re-attach to scene
+      if (parent) {
+        parent.add(this.mesh)
+      }
+
+      this.modelLoaded = true
+      console.log('Dart frog GLB model loaded successfully')
+
+    } catch (error) {
+      console.warn('Failed to load dart frog GLB, keeping placeholder:', error)
+      // Placeholder stays — game still works
+    }
   }
 
   /**
@@ -54,7 +111,9 @@ export class DartFrog extends Creature {
 
     // Re-apply scale with multiplier after base class sets scale
     if (this.mesh && this.meshScaleMultiplier) {
-      const baseScale = this.size / this.speciesData.physical.size_adult_inches
+      const baseScale = this.modelLoaded
+        ? (this.size / this.speciesData.physical.size_adult_inches) * (this.speciesData.physical.size_adult_inches / 2.0)
+        : this.size / this.speciesData.physical.size_adult_inches
       this.mesh.scale.setScalar(baseScale * this.meshScaleMultiplier)
     }
   }
